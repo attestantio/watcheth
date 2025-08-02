@@ -113,10 +113,9 @@ func (d *Display) getHeaders() []string {
 		"Client",
 		"Status", 
 		"Slot",
-		"Sync",
 		"Peers",
-		"Next",
-		"Epoch",
+		"Next In",
+		"Epoch/Final",
 	}
 }
 
@@ -290,37 +289,13 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 			d.setCell(tableRow, col, statusText, statusColor)
 			col++
 
-			// Slot - show current/head when syncing, just current when synced
-			var slotText string
+			// Slot with arrow notation when syncing
 			if info.IsConnected {
-				if info.SyncDistance > 0 {
-					slotText = fmt.Sprintf("%d/%d", info.CurrentSlot, info.HeadSlot)
-				} else {
-					slotText = fmt.Sprintf("%d", info.CurrentSlot)
-				}
+				slotText := fmt.Sprintf("%d", info.CurrentSlot)
+				d.setCellWithColoredArrow(tableRow, col, slotText, info.SyncDistance > 0, info.SyncDistance, tcell.ColorWhite, 50, 100)
 			} else {
-				slotText = "-"
+				d.setCell(tableRow, col, "-", tcell.ColorGray)
 			}
-			d.setCell(tableRow, col, slotText, tcell.ColorWhite)
-			col++
-
-			// Sync distance with color
-			var syncText string
-			var syncColor tcell.Color
-			if info.IsConnected {
-				syncText = fmt.Sprintf("%d", info.SyncDistance)
-				if info.SyncDistance == 0 {
-					syncColor = tcell.ColorGreen
-				} else if info.SyncDistance < 100 {
-					syncColor = tcell.ColorYellow
-				} else {
-					syncColor = tcell.ColorRed
-				}
-			} else {
-				syncText = "-"
-				syncColor = tcell.ColorGray
-			}
-			d.setCell(tableRow, col, syncText, syncColor)
 			col++
 
 			// Peers with color
@@ -352,18 +327,19 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 			d.setCell(tableRow, col, nextText, tcell.ColorWhite)
 			col++
 
-			// Epoch with finalized checkmark
-			var epochText string
+			// Epoch with arrow notation when behind
 			if info.IsConnected {
 				if info.FinalizedEpoch == info.CurrentEpoch {
-					epochText = fmt.Sprintf("%d ✓%d", info.CurrentEpoch, info.FinalizedEpoch)
+					epochText := fmt.Sprintf("%d ✓", info.CurrentEpoch)
+					d.setCell(tableRow, col, epochText, tcell.ColorWhite)
 				} else {
-					epochText = fmt.Sprintf("%d ✓%d", info.CurrentEpoch, info.FinalizedEpoch)
+					epochLag := info.CurrentEpoch - info.FinalizedEpoch
+					epochText := fmt.Sprintf("%d", info.CurrentEpoch)
+					d.setCellWithColoredArrow(tableRow, col, epochText, true, epochLag, tcell.ColorWhite, 2, 3)
 				}
 			} else {
-				epochText = "-"
+				d.setCell(tableRow, col, "-", tcell.ColorGray)
 			}
-			d.setCell(tableRow, col, epochText, tcell.ColorWhite)
 		}
 	})
 }
@@ -386,6 +362,29 @@ func (d *Display) setCell(row, col int, text string, color tcell.Color) {
 	} else {
 		cell.SetText(paddedText).SetTextColor(color)
 	}
+}
+
+// setCellWithColoredArrow sets a cell with special coloring for arrow notation
+func (d *Display) setCellWithColoredArrow(row, col int, baseText string, hasArrow bool, arrowValue uint64, baseColor tcell.Color, thresholdYellow, thresholdRed uint64) {
+	if !hasArrow {
+		d.setCell(row, col, baseText, baseColor)
+		return
+	}
+	
+	// Format text with arrow
+	text := fmt.Sprintf("%s ↓%d", baseText, arrowValue)
+	
+	// Determine color based on value
+	var cellColor tcell.Color
+	if arrowValue >= thresholdRed {
+		cellColor = tcell.ColorRed
+	} else if arrowValue >= thresholdYellow {
+		cellColor = tcell.ColorYellow
+	} else {
+		cellColor = baseColor
+	}
+	
+	d.setCell(row, col, text, cellColor)
 }
 
 func (d *Display) getStatusInfo(info *consensus.ConsensusNodeInfo) (string, tcell.Color, string) {
