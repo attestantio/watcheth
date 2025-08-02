@@ -107,9 +107,11 @@ func (d *Display) setupTable() {
 	}
 
 	for col, header := range headers {
-		cell := tview.NewTableCell(header).
+		// Add padding to headers
+		paddedHeader := " " + header + " "
+		cell := tview.NewTableCell(paddedHeader).
 			SetTextColor(tcell.ColorYellow).
-			SetAlign(tview.AlignCenter).
+			SetAlign(tview.AlignLeft).
 			SetSelectable(false)
 		d.table.SetCell(0, col, cell)
 	}
@@ -117,17 +119,18 @@ func (d *Display) setupTable() {
 
 func (d *Display) setupLayout() {
 	title := tview.NewTextView().
-		SetText("WatchETH - Ethereum Beacon Node Monitor").
-		SetTextAlign(tview.AlignCenter).
+		SetText("watcheth - Ethereum Beacon Node Monitor").
+		SetTextAlign(tview.AlignLeft).
 		SetTextColor(tcell.ColorGreen)
 
 	d.updateHelpText()
-	d.help.SetTextAlign(tview.AlignCenter).
+	d.help.SetTextAlign(tview.AlignLeft).
 		SetTextColor(tcell.ColorBlack)
 
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(title, 1, 0, false).
+		AddItem(nil, 1, 0, false). // Empty space between title and table
 		AddItem(d.table, 0, 1, true).
 		AddItem(d.help, 1, 0, false)
 
@@ -238,14 +241,16 @@ func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
 }
 
 func (d *Display) setCell(row, col int, text string, color tcell.Color) {
+	// Add padding to cell content
+	paddedText := " " + text + " "
 	cell := d.table.GetCell(row, col)
 	if cell == nil {
-		cell = tview.NewTableCell(text).
+		cell = tview.NewTableCell(paddedText).
 			SetTextColor(color).
-			SetAlign(tview.AlignCenter)
+			SetAlign(tview.AlignLeft)
 		d.table.SetCell(row, col, cell)
 	} else {
-		cell.SetText(text).SetTextColor(color)
+		cell.SetText(paddedText).SetTextColor(color)
 	}
 }
 
