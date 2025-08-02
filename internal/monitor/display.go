@@ -18,6 +18,14 @@ const (
 	ViewFull
 )
 
+// Animation frames for the title
+var titleAnimationFrames = []string{
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└ beacon monitor ┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└ beacon monitor ┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( -.- )     │\n│     > ^ <      │\n└ beacon monitor ┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└ beacon monitor ┘",
+}
+
 type Display struct {
 	app             *tview.Application
 	table           *tview.Table
@@ -27,6 +35,9 @@ type Display struct {
 	refreshInterval time.Duration
 	nextRefresh     time.Time
 	countdownTicker *time.Ticker
+	title           *tview.TextView
+	animationTicker *time.Ticker
+	animationFrame  int
 }
 
 func NewDisplay(monitor *Monitor) *Display {
@@ -36,8 +47,10 @@ func NewDisplay(monitor *Monitor) *Display {
 		monitor:         monitor,
 		viewMode:        ViewCompact,
 		help:            tview.NewTextView(),
+		title:           tview.NewTextView(),
 		refreshInterval: monitor.GetRefreshInterval(),
 		nextRefresh:     time.Now().Add(monitor.GetRefreshInterval()),
+		animationFrame:  0,
 	}
 }
 
@@ -48,6 +61,10 @@ func (d *Display) Run() error {
 	// Start countdown ticker
 	d.countdownTicker = time.NewTicker(time.Second)
 	go d.countdownLoop()
+
+	// Start animation ticker
+	d.animationTicker = time.NewTicker(500 * time.Millisecond)
+	go d.animationLoop()
 
 	go d.updateLoop()
 
@@ -118,8 +135,8 @@ func (d *Display) setupTable() {
 }
 
 func (d *Display) setupLayout() {
-	title := tview.NewTextView().
-		SetText("watcheth - Ethereum Beacon Node Monitor").
+	// Initialize title with first animation frame
+	d.title.SetText(titleAnimationFrames[0]).
 		SetTextAlign(tview.AlignLeft).
 		SetTextColor(tcell.ColorGreen)
 
@@ -129,8 +146,8 @@ func (d *Display) setupLayout() {
 
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(title, 1, 0, false).
-		AddItem(nil, 1, 0, false). // Empty space between title and table
+		AddItem(d.title, 5, 0, false). // Changed to 5 lines for the cat face animation
+		AddItem(nil, 1, 0, false).     // Empty space between title and table
 		AddItem(d.table, 0, 1, true).
 		AddItem(d.help, 1, 0, false)
 
@@ -527,6 +544,24 @@ func (d *Display) countdownLoop() {
 		case <-d.countdownTicker.C:
 			d.app.QueueUpdateDraw(func() {
 				d.updateHelpText()
+			})
+		}
+	}
+}
+
+func (d *Display) animationLoop() {
+	defer func() {
+		if d.animationTicker != nil {
+			d.animationTicker.Stop()
+		}
+	}()
+
+	for {
+		select {
+		case <-d.animationTicker.C:
+			d.app.QueueUpdateDraw(func() {
+				d.animationFrame = (d.animationFrame + 1) % len(titleAnimationFrames)
+				d.title.SetText(titleAnimationFrames[d.animationFrame])
 			})
 		}
 	}
