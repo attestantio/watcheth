@@ -50,7 +50,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	mon := monitor.NewMonitorV2(cfg.GetRefreshInterval())
+	mon := monitor.NewMonitor(cfg.GetRefreshInterval())
 
 	// Add clients based on their type
 	for _, clientCfg := range cfg.Clients {
@@ -76,7 +76,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 
 	go mon.Start(ctx)
 
-	display := monitor.NewDisplayV2(mon)
+	display := monitor.NewDisplay(mon)
 	display.SetupLogPaths(cfg.Clients)
 	if err := display.Run(); err != nil {
 		fmt.Printf("Error running display: %v\n", err)

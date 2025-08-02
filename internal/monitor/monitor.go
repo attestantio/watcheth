@@ -6,30 +6,49 @@ import (
 	"time"
 
 	"github.com/watcheth/watcheth/internal/consensus"
+	"github.com/watcheth/watcheth/internal/execution"
 )
 
+type NodeUpdate struct {
+	ConsensusInfos []*consensus.ConsensusNodeInfo
+	ExecutionInfos []*execution.ExecutionNodeInfo
+}
+
 type Monitor struct {
-	clients         []consensus.Client
-	refreshInterval time.Duration
-	nodeInfos       []*consensus.ConsensusNodeInfo
-	mu              sync.RWMutex
-	updateChan      chan []*consensus.ConsensusNodeInfo
+	consensusClients []consensus.Client
+	executionClients []execution.Client
+	refreshInterval  time.Duration
+
+	consensusInfos []*consensus.ConsensusNodeInfo
+	executionInfos []*execution.ExecutionNodeInfo
+
+	mu         sync.RWMutex
+	updateChan chan NodeUpdate
 }
 
 func NewMonitor(refreshInterval time.Duration) *Monitor {
 	return &Monitor{
-		clients:         make([]consensus.Client, 0),
-		refreshInterval: refreshInterval,
-		nodeInfos:       make([]*consensus.ConsensusNodeInfo, 0),
-		updateChan:      make(chan []*consensus.ConsensusNodeInfo, 1),
+		consensusClients: make([]consensus.Client, 0),
+		executionClients: make([]execution.Client, 0),
+		refreshInterval:  refreshInterval,
+		consensusInfos:   make([]*consensus.ConsensusNodeInfo, 0),
+		executionInfos:   make([]*execution.ExecutionNodeInfo, 0),
+		updateChan:       make(chan NodeUpdate, 1),
 	}
 }
 
-func (m *Monitor) AddClient(client consensus.Client) {
+func (m *Monitor) AddConsensusClient(client consensus.Client) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.clients = append(m.clients, client)
-	m.nodeInfos = append(m.nodeInfos, &consensus.ConsensusNodeInfo{})
+	m.consensusClients = append(m.consensusClients, client)
+	m.consensusInfos = append(m.consensusInfos, &consensus.ConsensusNodeInfo{})
+}
+
+func (m *Monitor) AddExecutionClient(client execution.Client) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.executionClients = append(m.executionClients, client)
+	m.executionInfos = append(m.executionInfos, &execution.ExecutionNodeInfo{})
 }
 
 func (m *Monitor) Start(ctx context.Context) {
@@ -50,9 +69,10 @@ func (m *Monitor) Start(ctx context.Context) {
 
 func (m *Monitor) updateAll(ctx context.Context) {
 	var wg sync.WaitGroup
-	results := make([]*consensus.ConsensusNodeInfo, len(m.clients))
 
-	for i, client := range m.clients {
+	// Update consensus clients
+	consensusResults := make([]*consensus.ConsensusNodeInfo, len(m.consensusClients))
+	for i, client := range m.consensusClients {
 		wg.Add(1)
 		go func(idx int, c consensus.Client) {
 			defer wg.Done()
@@ -63,9 +83,28 @@ func (m *Monitor) updateAll(ctx context.Context) {
 			info, err := c.GetNodeInfo(updateCtx)
 			if err != nil {
 				// GetNodeInfo already returns a properly populated info even on error
-				results[idx] = info
+				consensusResults[idx] = info
 			} else {
-				results[idx] = info
+				consensusResults[idx] = info
+			}
+		}(i, client)
+	}
+
+	// Update execution clients
+	executionResults := make([]*execution.ExecutionNodeInfo, len(m.executionClients))
+	for i, client := range m.executionClients {
+		wg.Add(1)
+		go func(idx int, c execution.Client) {
+			defer wg.Done()
+
+			updateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+
+			info, err := c.GetNodeInfo(updateCtx)
+			if err != nil {
+				executionResults[idx] = info
+			} else {
+				executionResults[idx] = info
 			}
 		}(i, client)
 	}
@@ -73,28 +112,60 @@ func (m *Monitor) updateAll(ctx context.Context) {
 	wg.Wait()
 
 	m.mu.Lock()
-	m.nodeInfos = results
+	m.consensusInfos = consensusResults
+	m.executionInfos = executionResults
 	m.mu.Unlock()
 
+	update := NodeUpdate{
+		ConsensusInfos: consensusResults,
+		ExecutionInfos: executionResults,
+	}
+
 	select {
-	case m.updateChan <- results:
+	case m.updateChan <- update:
 	default:
 	}
 }
 
-func (m *Monitor) GetNodeInfos() []*consensus.ConsensusNodeInfo {
+func (m *Monitor) GetNodeInfos() NodeUpdate {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	infos := make([]*consensus.ConsensusNodeInfo, len(m.nodeInfos))
-	copy(infos, m.nodeInfos)
-	return infos
+	consensusInfos := make([]*consensus.ConsensusNodeInfo, len(m.consensusInfos))
+	copy(consensusInfos, m.consensusInfos)
+
+	executionInfos := make([]*execution.ExecutionNodeInfo, len(m.executionInfos))
+	copy(executionInfos, m.executionInfos)
+
+	return NodeUpdate{
+		ConsensusInfos: consensusInfos,
+		ExecutionInfos: executionInfos,
+	}
 }
 
-func (m *Monitor) Updates() <-chan []*consensus.ConsensusNodeInfo {
+func (m *Monitor) Updates() <-chan NodeUpdate {
 	return m.updateChan
 }
 
 func (m *Monitor) GetRefreshInterval() time.Duration {
 	return m.refreshInterval
+}
+
+// Backward compatibility methods
+func (m *Monitor) GetConsensusInfos() []*consensus.ConsensusNodeInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	infos := make([]*consensus.ConsensusNodeInfo, len(m.consensusInfos))
+	copy(infos, m.consensusInfos)
+	return infos
+}
+
+func (m *Monitor) GetExecutionInfos() []*execution.ExecutionNodeInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	infos := make([]*execution.ExecutionNodeInfo, len(m.executionInfos))
+	copy(infos, m.executionInfos)
+	return infos
 }
