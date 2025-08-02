@@ -97,25 +97,26 @@ func (d *Display) setupTable() {
 		SetFixed(1, 0).
 		SetSelectable(false, false)
 
-	// Define headers for compact view
-	headers := []string{
-		"Client",
-		"Status",
-		"Slot",
-		"Sync",
-		"Peers",
-		"Next",
-		"Epoch",
-	}
-
 	// Set up header row with padding
-	for col, header := range headers {
+	for col, header := range d.getHeaders() {
 		paddedHeader := " " + header + " "
 		cell := tview.NewTableCell(paddedHeader).
 			SetTextColor(tcell.ColorYellow).
 			SetAlign(tview.AlignLeft).
 			SetSelectable(false)
 		d.table.SetCell(0, col, cell)
+	}
+}
+
+func (d *Display) getHeaders() []string {
+	return []string{
+		"Client",
+		"Status", 
+		"Slot",
+		"Sync",
+		"Peers",
+		"Next",
+		"Epoch",
 	}
 }
 
@@ -232,7 +233,8 @@ func (d *Display) updateLogView() {
 
 func (d *Display) updateLoop() {
 	// Initial update
-	d.updateTable(d.monitor.GetNodeInfos())
+	infos := d.monitor.GetNodeInfos()
+	d.updateTable(infos)
 
 	// Listen for updates
 	for infos := range d.monitor.Updates() {
@@ -257,6 +259,18 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 	}
 
 	d.app.QueueUpdateDraw(func() {
+		// Ensure we have enough rows in the table
+		currentRows := d.table.GetRowCount()
+		neededRows := len(infos) + 1 // +1 for header
+		
+		// Add rows if needed
+		columnCount := len(d.getHeaders())
+		for i := currentRows; i < neededRows; i++ {
+			for j := 0; j < columnCount; j++ {
+				d.table.SetCell(i, j, tview.NewTableCell(""))
+			}
+		}
+		
 		// Update table rows
 		for row, info := range infos {
 			if info == nil {
