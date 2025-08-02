@@ -22,6 +22,9 @@ type BeaconNodeInfo struct {
 	IsConnected     bool
 	LastError       error
 	LastUpdate      time.Time
+	PeerCount       uint64
+	NodeVersion     string
+	CurrentFork     string
 }
 
 type GenesisResponse struct {
@@ -87,6 +90,32 @@ type SyncingResponse struct {
 type NodeVersionResponse struct {
 	Data struct {
 		Version string `json:"version"`
+	} `json:"data"`
+}
+
+type PeerCountResponse struct {
+	Data struct {
+		Connected     string `json:"connected"`
+		Connecting    string `json:"connecting"`
+		Disconnected  string `json:"disconnected"`
+		Disconnecting string `json:"disconnecting"`
+	} `json:"data"`
+}
+
+type PeersResponse struct {
+	Data []struct {
+		PeerID    string `json:"peer_id"`
+		State     string `json:"state"`
+		Direction string `json:"direction"`
+	} `json:"data"`
+}
+
+type ForkResponse struct {
+	ExecutionOptimistic bool `json:"execution_optimistic"`
+	Data                struct {
+		PreviousVersion string `json:"previous_version"`
+		CurrentVersion  string `json:"current_version"`
+		Epoch           string `json:"epoch"`
 	} `json:"data"`
 }
 

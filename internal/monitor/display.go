@@ -40,6 +40,9 @@ func (d *Display) setupTable() {
 	headers := []string{
 		"Client",
 		"Status",
+		"Peers",
+		"Version",
+		"Fork",
 		"Current Slot",
 		"Head Slot",
 		"Sync Distance",
@@ -109,7 +112,7 @@ func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
 
 		// Add empty rows if needed
 		for i := currentRows; i < neededRows; i++ {
-			for j := 0; j < 10; j++ {
+			for j := 0; j < 13; j++ { // Increased to 13 columns
 				d.table.SetCell(i, j, tview.NewTableCell(""))
 			}
 		}
@@ -122,8 +125,35 @@ func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
 			status, statusColor := d.getStatus(info)
 			d.setCell(tableRow, 1, status, statusColor)
 
-			d.setCell(tableRow, 2, fmt.Sprintf("%d", info.CurrentSlot), tcell.ColorWhite)
-			d.setCell(tableRow, 3, fmt.Sprintf("%d", info.HeadSlot), tcell.ColorWhite)
+			// Peer count with color coding
+			peerColor := tcell.ColorGreen
+			if info.PeerCount < 10 {
+				peerColor = tcell.ColorRed
+			} else if info.PeerCount < 50 {
+				peerColor = tcell.ColorYellow
+			}
+			if info.IsConnected && info.PeerCount > 0 {
+				d.setCell(tableRow, 2, fmt.Sprintf("%d", info.PeerCount), peerColor)
+			} else {
+				d.setCell(tableRow, 2, "-", tcell.ColorBlack)
+			}
+
+			// Node version
+			if info.NodeVersion != "" {
+				d.setCell(tableRow, 3, info.NodeVersion, tcell.ColorWhite)
+			} else {
+				d.setCell(tableRow, 3, "-", tcell.ColorBlack)
+			}
+
+			// Fork
+			if info.CurrentFork != "" {
+				d.setCell(tableRow, 4, info.CurrentFork, tcell.ColorWhite)
+			} else {
+				d.setCell(tableRow, 4, "-", tcell.ColorBlack)
+			}
+
+			d.setCell(tableRow, 5, fmt.Sprintf("%d", info.CurrentSlot), tcell.ColorWhite)
+			d.setCell(tableRow, 6, fmt.Sprintf("%d", info.HeadSlot), tcell.ColorWhite)
 
 			syncDistance := fmt.Sprintf("%d", info.SyncDistance)
 			syncColor := tcell.ColorGreen
@@ -133,18 +163,18 @@ func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
 			if info.SyncDistance > 100 {
 				syncColor = tcell.ColorRed
 			}
-			d.setCell(tableRow, 4, syncDistance, syncColor)
+			d.setCell(tableRow, 7, syncDistance, syncColor)
 
-			d.setCell(tableRow, 5, fmt.Sprintf("%d", info.CurrentEpoch), tcell.ColorWhite)
-			d.setCell(tableRow, 6, fmt.Sprintf("%d", info.JustifiedEpoch), tcell.ColorWhite)
-			d.setCell(tableRow, 7, fmt.Sprintf("%d", info.FinalizedEpoch), tcell.ColorWhite)
+			d.setCell(tableRow, 8, fmt.Sprintf("%d", info.CurrentEpoch), tcell.ColorWhite)
+			d.setCell(tableRow, 9, fmt.Sprintf("%d", info.JustifiedEpoch), tcell.ColorWhite)
+			d.setCell(tableRow, 10, fmt.Sprintf("%d", info.FinalizedEpoch), tcell.ColorWhite)
 
 			if info.IsConnected {
-				d.setCell(tableRow, 8, d.formatDuration(info.TimeToNextSlot), tcell.ColorWhite)
-				d.setCell(tableRow, 9, d.formatDuration(info.TimeToNextEpoch), tcell.ColorWhite)
+				d.setCell(tableRow, 11, d.formatDuration(info.TimeToNextSlot), tcell.ColorWhite)
+				d.setCell(tableRow, 12, d.formatDuration(info.TimeToNextEpoch), tcell.ColorWhite)
 			} else {
-				d.setCell(tableRow, 8, "-", tcell.ColorBlack)
-				d.setCell(tableRow, 9, "-", tcell.ColorBlack)
+				d.setCell(tableRow, 11, "-", tcell.ColorBlack)
+				d.setCell(tableRow, 12, "-", tcell.ColorBlack)
 			}
 		}
 	})

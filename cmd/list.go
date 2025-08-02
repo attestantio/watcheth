@@ -81,6 +81,15 @@ func runList(cmd *cobra.Command, args []string) {
 		}
 
 		fmt.Printf("  ✅ Status: %s\n", status)
+		if info.PeerCount > 0 {
+			fmt.Printf("  Peer Count: %d\n", info.PeerCount)
+		}
+		if info.NodeVersion != "" {
+			fmt.Printf("  Node Version: %s\n", info.NodeVersion)
+		}
+		if info.CurrentFork != "" {
+			fmt.Printf("  Current Fork: %s\n", info.CurrentFork)
+		}
 		fmt.Printf("  Current Slot: %d\n", info.CurrentSlot)
 		fmt.Printf("  Head Slot: %d\n", info.HeadSlot)
 		fmt.Printf("  Sync Distance: %d\n", info.SyncDistance)

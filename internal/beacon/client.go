@@ -97,6 +97,25 @@ func (c *BeaconClient) GetNodeInfo(ctx context.Context) (*BeaconNodeInfo, error)
 	slotsUntilNextEpoch := chainConfig.SlotsPerEpoch - slotsInCurrentEpoch
 	info.TimeToNextEpoch = info.TimeToNextSlot + time.Duration((slotsUntilNextEpoch-1)*chainConfig.SecondsPerSlot)*time.Second
 
+	// Get peer count
+	peerCount, err := c.getPeerCount(ctx)
+	if err == nil {
+		connected, _ := strconv.ParseUint(peerCount.Data.Connected, 10, 64)
+		info.PeerCount = connected
+	}
+
+	// Get node version
+	nodeVersion, err := c.getNodeVersion(ctx)
+	if err == nil {
+		info.NodeVersion = nodeVersion.Data.Version
+	}
+
+	// Get fork info
+	fork, err := c.getFork(ctx)
+	if err == nil {
+		info.CurrentFork = fork.Data.CurrentVersion
+	}
+
 	info.IsConnected = true
 	return info, nil
 }
@@ -199,5 +218,23 @@ func (c *BeaconClient) getSpec(ctx context.Context) (*SpecResponse, error) {
 func (c *BeaconClient) getSyncing(ctx context.Context) (*SyncingResponse, error) {
 	var resp SyncingResponse
 	err := c.get(ctx, "/eth/v1/node/syncing", &resp)
+	return &resp, err
+}
+
+func (c *BeaconClient) getPeerCount(ctx context.Context) (*PeerCountResponse, error) {
+	var resp PeerCountResponse
+	err := c.get(ctx, "/eth/v1/node/peer_count", &resp)
+	return &resp, err
+}
+
+func (c *BeaconClient) getNodeVersion(ctx context.Context) (*NodeVersionResponse, error) {
+	var resp NodeVersionResponse
+	err := c.get(ctx, "/eth/v1/node/version", &resp)
+	return &resp, err
+}
+
+func (c *BeaconClient) getFork(ctx context.Context) (*ForkResponse, error) {
+	var resp ForkResponse
+	err := c.get(ctx, "/eth/v1/beacon/states/head/fork", &resp)
 	return &resp, err
 }
