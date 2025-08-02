@@ -16,7 +16,7 @@ BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 COMMIT_HASH=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # LDFLAGS for version info
-LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.CommitHash=$(COMMIT_HASH)"
+LDFLAGS=-ldflags "-X github.com/watcheth/watcheth/internal/version.Version=$(VERSION) -X github.com/watcheth/watcheth/internal/version.BuildTime=$(BUILD_TIME) -X github.com/watcheth/watcheth/internal/version.CommitHash=$(COMMIT_HASH)"
 
 # Default target
 .DEFAULT_GOAL := build
