@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/watcheth/watcheth/internal/beacon"
 	"github.com/watcheth/watcheth/internal/config"
+	"github.com/watcheth/watcheth/internal/consensus"
 )
 
 var (
@@ -19,8 +19,8 @@ var (
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List beacon node status once (non-interactive)",
-	Long:  `List the current status of all configured beacon nodes without the interactive UI.`,
+	Short: "List consensus client status once (non-interactive)",
+	Long:  `List the current status of all configured consensus clients without the interactive UI.`,
 	Run:   runList,
 }
 
@@ -53,11 +53,11 @@ func runList(cmd *cobra.Command, args []string) {
 		log.SetOutput(io.Discard)
 	}
 
-	fmt.Printf("Checking %d beacon nodes...\n\n", len(cfg.Clients))
+	fmt.Printf("Checking %d consensus clients...\n\n", len(cfg.Clients))
 
 	for _, clientCfg := range cfg.Clients {
 		fmt.Printf("Checking %s at %s...\n", clientCfg.Name, clientCfg.Endpoint)
-		client := beacon.NewBeaconClient(clientCfg.Name, clientCfg.Endpoint)
+		client := consensus.NewConsensusClient(clientCfg.Name, clientCfg.Endpoint)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		info, err := client.GetNodeInfo(ctx)

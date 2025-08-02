@@ -10,14 +10,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/watcheth/watcheth/internal/beacon"
 	"github.com/watcheth/watcheth/internal/config"
+	"github.com/watcheth/watcheth/internal/consensus"
 	"github.com/watcheth/watcheth/internal/monitor"
 )
 
 var monitorDebugCmd = &cobra.Command{
 	Use:   "monitor-debug",
-	Short: "Start monitoring beacon nodes with debug output",
+	Short: "Start monitoring consensus clients with debug output",
 	Long:  `Start monitoring with debug output to see what's happening.`,
 	Run:   runMonitorDebug,
 }
@@ -53,7 +53,7 @@ func runMonitorDebug(cmd *cobra.Command, args []string) {
 	mon := monitor.NewMonitor(cfg.GetRefreshInterval())
 
 	for _, clientCfg := range cfg.Clients {
-		client := beacon.NewBeaconClient(clientCfg.Name, clientCfg.Endpoint)
+		client := consensus.NewConsensusClient(clientCfg.Name, clientCfg.Endpoint)
 		mon.AddClient(client)
 	}
 

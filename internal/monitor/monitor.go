@@ -5,31 +5,31 @@ import (
 	"sync"
 	"time"
 
-	"github.com/watcheth/watcheth/internal/beacon"
+	"github.com/watcheth/watcheth/internal/consensus"
 )
 
 type Monitor struct {
-	clients         []beacon.Client
+	clients         []consensus.Client
 	refreshInterval time.Duration
-	nodeInfos       []*beacon.BeaconNodeInfo
+	nodeInfos       []*consensus.ConsensusNodeInfo
 	mu              sync.RWMutex
-	updateChan      chan []*beacon.BeaconNodeInfo
+	updateChan      chan []*consensus.ConsensusNodeInfo
 }
 
 func NewMonitor(refreshInterval time.Duration) *Monitor {
 	return &Monitor{
-		clients:         make([]beacon.Client, 0),
+		clients:         make([]consensus.Client, 0),
 		refreshInterval: refreshInterval,
-		nodeInfos:       make([]*beacon.BeaconNodeInfo, 0),
-		updateChan:      make(chan []*beacon.BeaconNodeInfo, 1),
+		nodeInfos:       make([]*consensus.ConsensusNodeInfo, 0),
+		updateChan:      make(chan []*consensus.ConsensusNodeInfo, 1),
 	}
 }
 
-func (m *Monitor) AddClient(client beacon.Client) {
+func (m *Monitor) AddClient(client consensus.Client) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.clients = append(m.clients, client)
-	m.nodeInfos = append(m.nodeInfos, &beacon.BeaconNodeInfo{})
+	m.nodeInfos = append(m.nodeInfos, &consensus.ConsensusNodeInfo{})
 }
 
 func (m *Monitor) Start(ctx context.Context) {
@@ -50,11 +50,11 @@ func (m *Monitor) Start(ctx context.Context) {
 
 func (m *Monitor) updateAll(ctx context.Context) {
 	var wg sync.WaitGroup
-	results := make([]*beacon.BeaconNodeInfo, len(m.clients))
+	results := make([]*consensus.ConsensusNodeInfo, len(m.clients))
 
 	for i, client := range m.clients {
 		wg.Add(1)
-		go func(idx int, c beacon.Client) {
+		go func(idx int, c consensus.Client) {
 			defer wg.Done()
 
 			updateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -82,16 +82,16 @@ func (m *Monitor) updateAll(ctx context.Context) {
 	}
 }
 
-func (m *Monitor) GetNodeInfos() []*beacon.BeaconNodeInfo {
+func (m *Monitor) GetNodeInfos() []*consensus.ConsensusNodeInfo {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	infos := make([]*beacon.BeaconNodeInfo, len(m.nodeInfos))
+	infos := make([]*consensus.ConsensusNodeInfo, len(m.nodeInfos))
 	copy(infos, m.nodeInfos)
 	return infos
 }
 
-func (m *Monitor) Updates() <-chan []*beacon.BeaconNodeInfo {
+func (m *Monitor) Updates() <-chan []*consensus.ConsensusNodeInfo {
 	return m.updateChan
 }
 

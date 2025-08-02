@@ -1,4 +1,4 @@
-package beacon
+package consensus
 
 import (
 	"context"
@@ -12,18 +12,18 @@ import (
 )
 
 type Client interface {
-	GetNodeInfo(ctx context.Context) (*BeaconNodeInfo, error)
+	GetNodeInfo(ctx context.Context) (*ConsensusNodeInfo, error)
 	GetChainConfig(ctx context.Context) (*ChainConfig, error)
 }
 
-type BeaconClient struct {
+type ConsensusClient struct {
 	endpoint   string
 	httpClient *http.Client
 	name       string
 }
 
-func NewBeaconClient(name, endpoint string) *BeaconClient {
-	return &BeaconClient{
+func NewConsensusClient(name, endpoint string) *ConsensusClient {
+	return &ConsensusClient{
 		name:     name,
 		endpoint: endpoint,
 		httpClient: &http.Client{
@@ -32,8 +32,8 @@ func NewBeaconClient(name, endpoint string) *BeaconClient {
 	}
 }
 
-func (c *BeaconClient) GetNodeInfo(ctx context.Context) (*BeaconNodeInfo, error) {
-	info := &BeaconNodeInfo{
+func (c *ConsensusClient) GetNodeInfo(ctx context.Context) (*ConsensusNodeInfo, error) {
+	info := &ConsensusNodeInfo{
 		Name:       c.name,
 		Endpoint:   c.endpoint,
 		LastUpdate: time.Now(),
@@ -120,7 +120,7 @@ func (c *BeaconClient) GetNodeInfo(ctx context.Context) (*BeaconNodeInfo, error)
 	return info, nil
 }
 
-func (c *BeaconClient) GetChainConfig(ctx context.Context) (*ChainConfig, error) {
+func (c *ConsensusClient) GetChainConfig(ctx context.Context) (*ChainConfig, error) {
 	genesis, err := c.getGenesis(ctx)
 	if err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func (c *BeaconClient) GetChainConfig(ctx context.Context) (*ChainConfig, error)
 	}, nil
 }
 
-func (c *BeaconClient) get(ctx context.Context, path string, v any) error {
+func (c *ConsensusClient) get(ctx context.Context, path string, v any) error {
 	url := fmt.Sprintf("%s%s", c.endpoint, path)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -191,49 +191,49 @@ func (c *BeaconClient) get(ctx context.Context, path string, v any) error {
 	return nil
 }
 
-func (c *BeaconClient) getGenesis(ctx context.Context) (*GenesisResponse, error) {
+func (c *ConsensusClient) getGenesis(ctx context.Context) (*GenesisResponse, error) {
 	var resp GenesisResponse
 	err := c.get(ctx, "/eth/v1/beacon/genesis", &resp)
 	return &resp, err
 }
 
-func (c *BeaconClient) getHeaders(ctx context.Context) (*HeadersResponse, error) {
+func (c *ConsensusClient) getHeaders(ctx context.Context) (*HeadersResponse, error) {
 	var resp HeadersResponse
 	err := c.get(ctx, "/eth/v1/beacon/headers", &resp)
 	return &resp, err
 }
 
-func (c *BeaconClient) getFinalityCheckpoints(ctx context.Context) (*FinalityCheckpointsResponse, error) {
+func (c *ConsensusClient) getFinalityCheckpoints(ctx context.Context) (*FinalityCheckpointsResponse, error) {
 	var resp FinalityCheckpointsResponse
 	err := c.get(ctx, "/eth/v1/beacon/states/head/finality_checkpoints", &resp)
 	return &resp, err
 }
 
-func (c *BeaconClient) getSpec(ctx context.Context) (*SpecResponse, error) {
+func (c *ConsensusClient) getSpec(ctx context.Context) (*SpecResponse, error) {
 	var resp SpecResponse
 	err := c.get(ctx, "/eth/v1/config/spec", &resp)
 	return &resp, err
 }
 
-func (c *BeaconClient) getSyncing(ctx context.Context) (*SyncingResponse, error) {
+func (c *ConsensusClient) getSyncing(ctx context.Context) (*SyncingResponse, error) {
 	var resp SyncingResponse
 	err := c.get(ctx, "/eth/v1/node/syncing", &resp)
 	return &resp, err
 }
 
-func (c *BeaconClient) getPeerCount(ctx context.Context) (*PeerCountResponse, error) {
+func (c *ConsensusClient) getPeerCount(ctx context.Context) (*PeerCountResponse, error) {
 	var resp PeerCountResponse
 	err := c.get(ctx, "/eth/v1/node/peer_count", &resp)
 	return &resp, err
 }
 
-func (c *BeaconClient) getNodeVersion(ctx context.Context) (*NodeVersionResponse, error) {
+func (c *ConsensusClient) getNodeVersion(ctx context.Context) (*NodeVersionResponse, error) {
 	var resp NodeVersionResponse
 	err := c.get(ctx, "/eth/v1/node/version", &resp)
 	return &resp, err
 }
 
-func (c *BeaconClient) getFork(ctx context.Context) (*ForkResponse, error) {
+func (c *ConsensusClient) getFork(ctx context.Context) (*ForkResponse, error) {
 	var resp ForkResponse
 	err := c.get(ctx, "/eth/v1/beacon/states/head/fork", &resp)
 	return &resp, err

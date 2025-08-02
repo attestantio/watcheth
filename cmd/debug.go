@@ -13,8 +13,8 @@ import (
 
 var debugCmd = &cobra.Command{
 	Use:   "debug [endpoint]",
-	Short: "Debug beacon node endpoint",
-	Long:  `Test various API endpoints on a beacon node to see what's available.`,
+	Short: "Debug consensus client endpoint",
+	Long:  `Test various API endpoints on a consensus client to see what's available.`,
 	Args:  cobra.ExactArgs(1),
 	Run:   runDebug,
 }
@@ -25,7 +25,7 @@ func init() {
 
 func runDebug(cmd *cobra.Command, args []string) {
 	endpoint := args[0]
-	fmt.Printf("Testing beacon node at: %s\n\n", endpoint)
+	fmt.Printf("Testing consensus client at: %s\n\n", endpoint)
 
 	endpoints := []string{
 		"/eth/v1/beacon/genesis",

@@ -7,8 +7,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/watcheth/watcheth/internal/beacon"
 	"github.com/watcheth/watcheth/internal/config"
+	"github.com/watcheth/watcheth/internal/consensus"
 )
 
 type ViewMode int
@@ -22,10 +22,10 @@ const (
 
 // Animation frames for the title
 var titleAnimationFrames = []string{
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└ beacon monitor ┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└ beacon monitor ┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( -.- )     │\n│     > ^ <      │\n└ beacon monitor ┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└ beacon monitor ┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└consensus monitor┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└consensus monitor┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( -.- )     │\n│     > ^ <      │\n└consensus monitor┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└consensus monitor┘",
 }
 
 type Display struct {
@@ -309,7 +309,7 @@ func (d *Display) updateLoop() {
 	}
 }
 
-func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
+func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 	d.app.QueueUpdateDraw(func() {
 		// Determine column count based on view mode
 		var columnCount int
@@ -367,7 +367,7 @@ func (d *Display) setCell(row, col int, text string, color tcell.Color) {
 	}
 }
 
-func (d *Display) getStatus(info *beacon.BeaconNodeInfo) (string, tcell.Color) {
+func (d *Display) getStatus(info *consensus.ConsensusNodeInfo) (string, tcell.Color) {
 	if !info.IsConnected {
 		return "Offline", tcell.ColorRed
 	}
@@ -430,7 +430,7 @@ func (d *Display) updateHelpText() {
 	d.help.SetText(helpText)
 }
 
-func (d *Display) updateCompactView(row int, info *beacon.BeaconNodeInfo) {
+func (d *Display) updateCompactView(row int, info *consensus.ConsensusNodeInfo) {
 	col := 0
 
 	// Client name
@@ -484,7 +484,7 @@ func (d *Display) updateCompactView(row int, info *beacon.BeaconNodeInfo) {
 	}
 }
 
-func (d *Display) updateNetworkView(row int, info *beacon.BeaconNodeInfo) {
+func (d *Display) updateNetworkView(row int, info *consensus.ConsensusNodeInfo) {
 	col := 0
 
 	// Client name
@@ -526,7 +526,7 @@ func (d *Display) updateNetworkView(row int, info *beacon.BeaconNodeInfo) {
 	}
 }
 
-func (d *Display) updateConsensusView(row int, info *beacon.BeaconNodeInfo) {
+func (d *Display) updateConsensusView(row int, info *consensus.ConsensusNodeInfo) {
 	col := 0
 
 	// Client name
@@ -553,7 +553,7 @@ func (d *Display) updateConsensusView(row int, info *beacon.BeaconNodeInfo) {
 	}
 }
 
-func (d *Display) updateFullView(row int, info *beacon.BeaconNodeInfo) {
+func (d *Display) updateFullView(row int, info *consensus.ConsensusNodeInfo) {
 	col := 0
 
 	// Client name

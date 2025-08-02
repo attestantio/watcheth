@@ -12,9 +12,9 @@ var cfgFile string
 
 var rootCmd = &cobra.Command{
 	Use:   "watcheth",
-	Short: "Monitor Ethereum beacon node stats in real-time",
+	Short: "Monitor Ethereum consensus client stats in real-time",
 	Long: `WatchETH is a CLI tool that monitors multiple Ethereum consensus clients
-(Prysm, Lighthouse, Teku, Nimbus) and displays beacon chain statistics
+(Prysm, Lighthouse, Teku, Nimbus) and displays consensus layer statistics
 in real-time including current slot, head slot, epoch, and timing information.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		monitorCmd.Run(cmd, args)

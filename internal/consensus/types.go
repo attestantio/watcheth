@@ -1,10 +1,10 @@
-package beacon
+package consensus
 
 import (
 	"time"
 )
 
-type BeaconNodeInfo struct {
+type ConsensusNodeInfo struct {
 	Name            string
 	Endpoint        string
 	CurrentSlot     uint64
