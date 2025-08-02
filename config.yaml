@@ -1,0 +1,18 @@
+clients:
+  # Local nodes (uncomment if running locally)
+  # - name: "Local Prysm"
+  #   endpoint: "http://localhost:3500"
+  # - name: "Local Lighthouse"
+  #   endpoint: "http://localhost:5052"
+  
+  # Public endpoints (for testing/development)
+  - name: "EthStaker"
+    endpoint: "https://beaconstate.ethstaker.cc"
+  - name: "Attestant"
+    endpoint: "https://mainnet-checkpoint-sync.attestant.io"
+  - name: "ChainSafe"
+    endpoint: "https://beaconstate-mainnet.chainsafe.io"
+  - name: "Sigma Prime"
+    endpoint: "https://mainnet.checkpoint.sigp.io"
+
+refresh_interval: 2s
