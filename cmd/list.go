@@ -39,13 +39,14 @@ func runList(cmd *cobra.Command, args []string) {
 				return
 			}
 		} else {
-			cfg = config.DefaultConfig
+			fmt.Printf("Config file not found. Please create a watcheth.yaml file or specify one with --config\n")
+			return
 		}
 	}
 
 	if len(cfg.Clients) == 0 {
-		fmt.Println("No clients configured. Using default configuration.")
-		cfg = config.DefaultConfig
+		fmt.Printf("No clients configured in config file. Please add at least one client to your watcheth.yaml\n")
+		return
 	}
 
 	// Enable logging if verbose flag is set

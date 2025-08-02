@@ -33,25 +33,3 @@ func (cc *ClientConfig) GetLogPath() string {
 	// Replace {name} placeholder with actual client name
 	return strings.ReplaceAll(cc.LogPath, "{name}", strings.ToLower(cc.Name))
 }
-
-var DefaultConfig = Config{
-	RefreshInterval: "2s",
-	Clients: []ClientConfig{
-		{
-			Name:     "EthStaker",
-			Endpoint: "https://beaconstate.ethstaker.cc",
-		},
-		{
-			Name:     "Attestant",
-			Endpoint: "https://mainnet-checkpoint-sync.attestant.io",
-		},
-		{
-			Name:     "ChainSafe",
-			Endpoint: "https://beaconstate-mainnet.chainsafe.io",
-		},
-		{
-			Name:     "Sigma Prime",
-			Endpoint: "https://mainnet.checkpoint.sigp.io",
-		},
-	},
-}

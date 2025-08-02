@@ -35,13 +35,14 @@ func runMonitor(cmd *cobra.Command, args []string) {
 				os.Exit(1)
 			}
 		} else {
-			cfg = config.DefaultConfig
+			fmt.Printf("Config file not found. Please create a watcheth.yaml file or specify one with --config\n")
+			os.Exit(1)
 		}
 	}
 
 	if len(cfg.Clients) == 0 {
-		fmt.Println("No clients configured. Using default configuration.")
-		cfg = config.DefaultConfig
+		fmt.Printf("No clients configured in config file. Please add at least one client to your watcheth.yaml\n")
+		os.Exit(1)
 	}
 
 	mon := monitor.NewMonitor(cfg.GetRefreshInterval())
