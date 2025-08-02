@@ -223,23 +223,14 @@ func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
 		currentRows := d.table.GetRowCount()
 		neededRows := len(infos) + 1 // +1 for header
 
-		// Add empty rows if needed
+		// Add rows if needed
 		for i := currentRows; i < neededRows; i++ {
 			for j := 0; j < columnCount; j++ {
 				d.table.SetCell(i, j, tview.NewTableCell(""))
 			}
 		}
 
-		// Clear extra columns if switching to a view with fewer columns
-		if currentRows > 0 && d.table.GetCell(0, 0) != nil {
-			_, currentCols, _ := d.table.GetCell(0, 0).GetLastPosition()
-			for i := 0; i < currentRows; i++ {
-				for j := columnCount; j <= currentCols; j++ {
-					d.table.SetCell(i, j, nil)
-				}
-			}
-		}
-
+		// Update each row with node info
 		for row, info := range infos {
 			tableRow := row + 1
 
