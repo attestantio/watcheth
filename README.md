@@ -119,9 +119,41 @@ watcheth/
 
 ### Building
 
+Using the Makefile:
+
+```bash
+# Build for current platform
+make build
+
+# Build for Linux AMD64
+make build-linux
+
+# Build for all major platforms
+make build-all
+
+# Clean build artifacts
+make clean
+
+# Run tests
+make test
+
+# Install to GOPATH/bin
+make install
+```
+
+Manual build (without Make):
+
 ```bash
 go build -o watcheth
 ```
+
+To build for Linux x86_64 systems (e.g., Ubuntu 64-bit servers):
+
+```bash
+GOOS=linux GOARCH=amd64 go build -o watcheth-linux-amd64
+```
+
+Build artifacts are placed in the `build/` directory with platform-specific subdirectories.
 
 ### Testing
 

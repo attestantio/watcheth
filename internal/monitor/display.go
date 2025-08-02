@@ -10,9 +10,9 @@ import (
 )
 
 type Display struct {
-	app      *tview.Application
-	table    *tview.Table
-	monitor  *Monitor
+	app     *tview.Application
+	table   *tview.Table
+	monitor *Monitor
 }
 
 func NewDisplay(monitor *Monitor) *Display {
@@ -68,7 +68,7 @@ func (d *Display) setupLayout() {
 	help := tview.NewTextView().
 		SetText("Press 'q' to quit | Press 'r' to refresh").
 		SetTextAlign(tview.AlignCenter).
-		SetTextColor(tcell.ColorDimGray)
+		SetTextColor(tcell.ColorBlack)
 
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
@@ -77,7 +77,7 @@ func (d *Display) setupLayout() {
 		AddItem(help, 1, 0, false)
 
 	d.app.SetRoot(flex, true).EnableMouse(false)
-	
+
 	d.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
 		case 'q', 'Q':
@@ -106,25 +106,25 @@ func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
 		// Ensure we have enough rows in the table
 		currentRows := d.table.GetRowCount()
 		neededRows := len(infos) + 1 // +1 for header
-		
+
 		// Add empty rows if needed
 		for i := currentRows; i < neededRows; i++ {
 			for j := 0; j < 10; j++ {
 				d.table.SetCell(i, j, tview.NewTableCell(""))
 			}
 		}
-		
+
 		for row, info := range infos {
 			tableRow := row + 1
 
 			d.setCell(tableRow, 0, info.Name, tcell.ColorWhite)
-			
+
 			status, statusColor := d.getStatus(info)
 			d.setCell(tableRow, 1, status, statusColor)
-			
+
 			d.setCell(tableRow, 2, fmt.Sprintf("%d", info.CurrentSlot), tcell.ColorWhite)
 			d.setCell(tableRow, 3, fmt.Sprintf("%d", info.HeadSlot), tcell.ColorWhite)
-			
+
 			syncDistance := fmt.Sprintf("%d", info.SyncDistance)
 			syncColor := tcell.ColorGreen
 			if info.SyncDistance > 0 {
@@ -134,17 +134,17 @@ func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
 				syncColor = tcell.ColorRed
 			}
 			d.setCell(tableRow, 4, syncDistance, syncColor)
-			
+
 			d.setCell(tableRow, 5, fmt.Sprintf("%d", info.CurrentEpoch), tcell.ColorWhite)
 			d.setCell(tableRow, 6, fmt.Sprintf("%d", info.JustifiedEpoch), tcell.ColorWhite)
 			d.setCell(tableRow, 7, fmt.Sprintf("%d", info.FinalizedEpoch), tcell.ColorWhite)
-			
+
 			if info.IsConnected {
 				d.setCell(tableRow, 8, d.formatDuration(info.TimeToNextSlot), tcell.ColorWhite)
 				d.setCell(tableRow, 9, d.formatDuration(info.TimeToNextEpoch), tcell.ColorWhite)
 			} else {
-				d.setCell(tableRow, 8, "-", tcell.ColorDimGray)
-				d.setCell(tableRow, 9, "-", tcell.ColorDimGray)
+				d.setCell(tableRow, 8, "-", tcell.ColorBlack)
+				d.setCell(tableRow, 9, "-", tcell.ColorBlack)
 			}
 		}
 	})
@@ -179,12 +179,12 @@ func (d *Display) formatDuration(duration time.Duration) string {
 	if duration < 0 {
 		return "0s"
 	}
-	
+
 	seconds := int(duration.Seconds())
 	if seconds < 60 {
 		return fmt.Sprintf("%ds", seconds)
 	}
-	
+
 	minutes := seconds / 60
 	seconds = seconds % 60
 	return fmt.Sprintf("%dm%ds", minutes, seconds)
