@@ -87,7 +87,6 @@ WatchETH now supports multiple display modes to fit different terminal sizes:
 - **Compact View** (default) - Shows essential metrics that fit in 80 columns
 - **Network View** - Focuses on network health metrics (peers, version, fork)
 - **Consensus View** - Shows epoch and finalization information
-- **Full View** - Displays all available metrics (requires wide terminal)
 
 ### Keyboard Shortcuts
 
@@ -96,7 +95,6 @@ WatchETH now supports multiple display modes to fit different terminal sizes:
 - `1` - Switch to Compact view
 - `2` - Switch to Network view  
 - `3` - Switch to Consensus view
-- `4` - Switch to Full view
 
 ## Default Ports
 

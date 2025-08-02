@@ -17,7 +17,6 @@ const (
 	ViewCompact ViewMode = iota
 	ViewNetwork
 	ViewConsensus
-	ViewFull
 )
 
 // Animation frames for the title
@@ -128,22 +127,6 @@ func (d *Display) setupTable() {
 			"Finalized",
 			"Next Epoch In",
 		}
-	case ViewFull:
-		headers = []string{
-			"Client",
-			"Status",
-			"Peers",
-			"Version",
-			"Fork",
-			"Current Slot",
-			"Head Slot",
-			"Sync Distance",
-			"Current Epoch",
-			"Justified Epoch",
-			"Finalized Epoch",
-			"Next Slot In",
-			"Next Epoch In",
-		}
 	}
 
 	for col, header := range headers {
@@ -222,12 +205,6 @@ func (d *Display) updateLayout() {
 			return nil
 		case '3':
 			d.viewMode = ViewConsensus
-			d.updateHelpText()
-			d.setupTable()
-			go d.updateTable(d.monitor.GetNodeInfos())
-			return nil
-		case '4':
-			d.viewMode = ViewFull
 			d.updateHelpText()
 			d.setupTable()
 			go d.updateTable(d.monitor.GetNodeInfos())
@@ -320,8 +297,6 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 			columnCount = 5
 		case ViewConsensus:
 			columnCount = 5
-		case ViewFull:
-			columnCount = 13
 		}
 
 		// Ensure we have enough rows in the table
@@ -346,8 +321,6 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 				d.updateNetworkView(tableRow, info)
 			case ViewConsensus:
 				d.updateConsensusView(tableRow, info)
-			case ViewFull:
-				d.updateFullView(tableRow, info)
 			}
 		}
 	})
@@ -404,8 +377,6 @@ func (d *Display) updateHelpText() {
 		viewName = "Network"
 	case ViewConsensus:
 		viewName = "Consensus"
-	case ViewFull:
-		viewName = "Full"
 	}
 
 	// Calculate time until next refresh
@@ -425,7 +396,7 @@ func (d *Display) updateHelpText() {
 		logHelp = " | L:Show Logs"
 	}
 
-	helpText := fmt.Sprintf("[%s View] q:Quit | r:Refresh | 1-4:Views%s | Next: %ds",
+	helpText := fmt.Sprintf("[%s View] q:Quit | r:Refresh | 1-3:Views%s | Next: %ds",
 		viewName, logHelp, int(timeLeft.Seconds()))
 	d.help.SetText(helpText)
 }
@@ -543,96 +514,6 @@ func (d *Display) updateConsensusView(row int, info *consensus.ConsensusNodeInfo
 
 	// Finalized
 	d.setCell(row, col, fmt.Sprintf("%d", info.FinalizedEpoch), tcell.ColorWhite)
-	col++
-
-	// Next Epoch In
-	if info.IsConnected {
-		d.setCell(row, col, d.formatDuration(info.TimeToNextEpoch), tcell.ColorWhite)
-	} else {
-		d.setCell(row, col, "-", tcell.ColorBlack)
-	}
-}
-
-func (d *Display) updateFullView(row int, info *consensus.ConsensusNodeInfo) {
-	col := 0
-
-	// Client name
-	d.setCell(row, col, info.Name, tcell.ColorWhite)
-	col++
-
-	// Status
-	status, statusColor := d.getStatus(info)
-	d.setCell(row, col, status, statusColor)
-	col++
-
-	// Peers
-	peerColor := tcell.ColorGreen
-	if info.PeerCount < 10 {
-		peerColor = tcell.ColorRed
-	} else if info.PeerCount < 50 {
-		peerColor = tcell.ColorYellow
-	}
-	if info.IsConnected && info.PeerCount > 0 {
-		d.setCell(row, col, fmt.Sprintf("%d", info.PeerCount), peerColor)
-	} else {
-		d.setCell(row, col, "-", tcell.ColorBlack)
-	}
-	col++
-
-	// Version
-	if info.NodeVersion != "" {
-		d.setCell(row, col, info.NodeVersion, tcell.ColorWhite)
-	} else {
-		d.setCell(row, col, "-", tcell.ColorBlack)
-	}
-	col++
-
-	// Fork
-	if info.CurrentFork != "" {
-		d.setCell(row, col, info.CurrentFork, tcell.ColorWhite)
-	} else {
-		d.setCell(row, col, "-", tcell.ColorBlack)
-	}
-	col++
-
-	// Current Slot
-	d.setCell(row, col, fmt.Sprintf("%d", info.CurrentSlot), tcell.ColorWhite)
-	col++
-
-	// Head Slot
-	d.setCell(row, col, fmt.Sprintf("%d", info.HeadSlot), tcell.ColorWhite)
-	col++
-
-	// Sync Distance
-	syncDistance := fmt.Sprintf("%d", info.SyncDistance)
-	syncColor := tcell.ColorGreen
-	if info.SyncDistance > 0 {
-		syncColor = tcell.ColorYellow
-	}
-	if info.SyncDistance > 100 {
-		syncColor = tcell.ColorRed
-	}
-	d.setCell(row, col, syncDistance, syncColor)
-	col++
-
-	// Current Epoch
-	d.setCell(row, col, fmt.Sprintf("%d", info.CurrentEpoch), tcell.ColorWhite)
-	col++
-
-	// Justified Epoch
-	d.setCell(row, col, fmt.Sprintf("%d", info.JustifiedEpoch), tcell.ColorWhite)
-	col++
-
-	// Finalized Epoch
-	d.setCell(row, col, fmt.Sprintf("%d", info.FinalizedEpoch), tcell.ColorWhite)
-	col++
-
-	// Next Slot In
-	if info.IsConnected {
-		d.setCell(row, col, d.formatDuration(info.TimeToNextSlot), tcell.ColorWhite)
-	} else {
-		d.setCell(row, col, "-", tcell.ColorBlack)
-	}
 	col++
 
 	// Next Epoch In
