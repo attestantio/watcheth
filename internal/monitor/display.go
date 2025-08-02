@@ -38,7 +38,7 @@ func (d *Display) setupTable() {
 		SetSelectable(false, false)
 
 	headers := []string{
-		"Node Name",
+		"Client",
 		"Status",
 		"Current Slot",
 		"Head Slot",
