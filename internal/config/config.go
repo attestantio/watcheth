@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 )
 
@@ -12,6 +13,7 @@ type Config struct {
 type ClientConfig struct {
 	Name     string `mapstructure:"name"`
 	Endpoint string `mapstructure:"endpoint"`
+	LogPath  string `mapstructure:"log_path"`
 }
 
 func (c *Config) GetRefreshInterval() time.Duration {
@@ -20,6 +22,16 @@ func (c *Config) GetRefreshInterval() time.Duration {
 		return 2 * time.Second
 	}
 	return duration
+}
+
+// GetLogPath returns the log path for the client, substituting {name} with the client name
+func (cc *ClientConfig) GetLogPath() string {
+	if cc.LogPath == "" {
+		// Default log path pattern
+		return "/var/log/" + strings.ToLower(cc.Name) + "/" + strings.ToLower(cc.Name) + ".log"
+	}
+	// Replace {name} placeholder with actual client name
+	return strings.ReplaceAll(cc.LogPath, "{name}", strings.ToLower(cc.Name))
 }
 
 var DefaultConfig = Config{

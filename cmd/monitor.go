@@ -65,6 +65,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	go mon.Start(ctx)
 
 	display := monitor.NewDisplay(mon)
+	display.SetupLogPaths(cfg.Clients)
 	if err := display.Run(); err != nil {
 		fmt.Printf("Error running display: %v\n", err)
 		os.Exit(1)

@@ -2,11 +2,13 @@ package monitor
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/watcheth/watcheth/internal/beacon"
+	"github.com/watcheth/watcheth/internal/config"
 )
 
 type ViewMode int
@@ -27,30 +29,40 @@ var titleAnimationFrames = []string{
 }
 
 type Display struct {
-	app             *tview.Application
-	table           *tview.Table
-	monitor         *Monitor
-	viewMode        ViewMode
-	help            *tview.TextView
-	refreshInterval time.Duration
-	nextRefresh     time.Time
-	countdownTicker *time.Ticker
-	title           *tview.TextView
-	animationTicker *time.Ticker
-	animationFrame  int
+	app               *tview.Application
+	table             *tview.Table
+	monitor           *Monitor
+	viewMode          ViewMode
+	help              *tview.TextView
+	refreshInterval   time.Duration
+	nextRefresh       time.Time
+	countdownTicker   *time.Ticker
+	title             *tview.TextView
+	animationTicker   *time.Ticker
+	animationFrame    int
+	logView           *tview.TextView
+	logReader         *LogReader
+	showLogs          bool
+	selectedLogClient int
+	clientNames       []string
 }
 
 func NewDisplay(monitor *Monitor) *Display {
 	return &Display{
-		app:             tview.NewApplication(),
-		table:           tview.NewTable(),
-		monitor:         monitor,
-		viewMode:        ViewCompact,
-		help:            tview.NewTextView(),
-		title:           tview.NewTextView(),
-		refreshInterval: monitor.GetRefreshInterval(),
-		nextRefresh:     time.Now().Add(monitor.GetRefreshInterval()),
-		animationFrame:  0,
+		app:               tview.NewApplication(),
+		table:             tview.NewTable(),
+		monitor:           monitor,
+		viewMode:          ViewCompact,
+		help:              tview.NewTextView(),
+		title:             tview.NewTextView(),
+		logView:           tview.NewTextView(),
+		logReader:         NewLogReader(),
+		refreshInterval:   monitor.GetRefreshInterval(),
+		nextRefresh:       time.Now().Add(monitor.GetRefreshInterval()),
+		animationFrame:    0,
+		showLogs:          false,
+		selectedLogClient: 0,
+		clientNames:       []string{},
 	}
 }
 
@@ -69,6 +81,17 @@ func (d *Display) Run() error {
 	go d.updateLoop()
 
 	return d.app.Run()
+}
+
+// SetupLogPaths configures log paths for each client
+func (d *Display) SetupLogPaths(clientConfigs []config.ClientConfig) {
+	d.clientNames = make([]string, len(clientConfigs))
+	for i, cfg := range clientConfigs {
+		d.clientNames[i] = cfg.Name
+		if cfg.LogPath != "" || cfg.GetLogPath() != "" {
+			d.logReader.SetLogPath(cfg.Name, cfg.GetLogPath())
+		}
+	}
 }
 
 func (d *Display) setupTable() {
@@ -144,12 +167,34 @@ func (d *Display) setupLayout() {
 	d.help.SetTextAlign(tview.AlignLeft).
 		SetTextColor(tcell.ColorBlack)
 
+	// Setup log view
+	d.logView.SetBorder(true).
+		SetTitle(" Logs ").
+		SetTitleAlign(tview.AlignLeft)
+
+	d.updateLayout()
+}
+
+func (d *Display) updateLayout() {
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(d.title, 5, 0, false). // Changed to 5 lines for the cat face animation
-		AddItem(nil, 1, 0, false).     // Empty space between title and table
-		AddItem(d.table, 0, 1, true).
-		AddItem(d.help, 1, 0, false)
+		AddItem(d.title, 5, 0, false). // Cat face animation
+		AddItem(nil, 1, 0, false)      // Empty space
+
+	if d.showLogs {
+		// Split view: table and logs
+		mainArea := tview.NewFlex().
+			SetDirection(tview.FlexRow).
+			AddItem(d.table, 0, 7, true).   // 70% for table
+			AddItem(d.logView, 0, 3, false) // 30% for logs
+
+		flex.AddItem(mainArea, 0, 1, true)
+	} else {
+		// Table only
+		flex.AddItem(d.table, 0, 1, true)
+	}
+
+	flex.AddItem(d.help, 1, 0, false)
 
 	d.app.SetRoot(flex, true).EnableMouse(false)
 
@@ -187,9 +232,64 @@ func (d *Display) setupLayout() {
 			d.setupTable()
 			go d.updateTable(d.monitor.GetNodeInfos())
 			return nil
+		case 'L':
+			// Toggle log view
+			d.showLogs = !d.showLogs
+			d.updateHelpText()
+			d.updateLayout()
+			if d.showLogs {
+				d.updateLogView()
+			}
+			return nil
+		case 'j':
+			// Next client's logs (vim down)
+			if d.showLogs && len(d.clientNames) > 0 {
+				d.selectedLogClient = (d.selectedLogClient + 1) % len(d.clientNames)
+				d.updateLogView()
+			}
+			return nil
+		case 'k':
+			// Previous client's logs (vim up)
+			if d.showLogs && len(d.clientNames) > 0 {
+				d.selectedLogClient = (d.selectedLogClient - 1 + len(d.clientNames)) % len(d.clientNames)
+				d.updateLogView()
+			}
+			return nil
+		case 'g':
+			// First client's logs
+			if d.showLogs && len(d.clientNames) > 0 {
+				d.selectedLogClient = 0
+				d.updateLogView()
+			}
+			return nil
+		case 'G':
+			// Last client's logs
+			if d.showLogs && len(d.clientNames) > 0 {
+				d.selectedLogClient = len(d.clientNames) - 1
+				d.updateLogView()
+			}
+			return nil
 		}
 		return event
 	})
+}
+
+func (d *Display) updateLogView() {
+	if !d.showLogs || len(d.clientNames) == 0 {
+		return
+	}
+
+	clientName := d.clientNames[d.selectedLogClient]
+
+	// Update title with current client
+	d.logView.SetTitle(fmt.Sprintf(" Logs - %s ", clientName))
+
+	// Read logs for the selected client
+	logs, _ := d.logReader.ReadLogs(clientName)
+
+	// Display logs as-is
+	logText := strings.Join(logs, "\n")
+	d.logView.SetText(logText)
 }
 
 func (d *Display) updateLoop() {
@@ -201,6 +301,11 @@ func (d *Display) updateLoop() {
 		d.updateTable(infos)
 		// Reset the next refresh time
 		d.nextRefresh = time.Now().Add(d.refreshInterval)
+
+		// Update logs if visible
+		if d.showLogs {
+			d.updateLogView()
+		}
 	}
 }
 
@@ -309,8 +414,19 @@ func (d *Display) updateHelpText() {
 		timeLeft = 0
 	}
 
-	helpText := fmt.Sprintf("[%s View] q:Quit | r:Refresh | 1:Compact | 2:Network | 3:Consensus | 4:Full | Next refresh: %ds",
-		viewName, int(timeLeft.Seconds()))
+	var logHelp string
+	if d.showLogs {
+		clientName := "[none]"
+		if len(d.clientNames) > 0 && d.selectedLogClient < len(d.clientNames) {
+			clientName = d.clientNames[d.selectedLogClient]
+		}
+		logHelp = fmt.Sprintf(" | L:Hide | j/k:Nav | g/G:First/Last | Logs:%s", clientName)
+	} else {
+		logHelp = " | L:Show Logs"
+	}
+
+	helpText := fmt.Sprintf("[%s View] q:Quit | r:Refresh | 1-4:Views%s | Next: %ds",
+		viewName, logHelp, int(timeLeft.Seconds()))
 	d.help.SetText(helpText)
 }
 
