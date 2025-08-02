@@ -29,7 +29,7 @@ var titleAnimationFrames = []string{
 
 type Display struct {
 	app               *tview.Application
-	mainView          *tview.Flex
+	table             *tview.Table
 	monitor           *Monitor
 	help              *tview.TextView
 	refreshInterval   time.Duration
@@ -43,13 +43,12 @@ type Display struct {
 	showLogs          bool
 	selectedLogClient int
 	clientNames       []string
-	clientCards       []*tview.TextView
 }
 
 func NewDisplay(monitor *Monitor) *Display {
 	return &Display{
 		app:               tview.NewApplication(),
-		mainView:          tview.NewFlex(),
+		table:             tview.NewTable(),
 		monitor:           monitor,
 		help:              tview.NewTextView(),
 		title:             tview.NewTextView(),
@@ -61,11 +60,11 @@ func NewDisplay(monitor *Monitor) *Display {
 		showLogs:          false,
 		selectedLogClient: 0,
 		clientNames:       []string{},
-		clientCards:       []*tview.TextView{},
 	}
 }
 
 func (d *Display) Run() error {
+	d.setupTable()
 	d.setupLayout()
 
 	// Start countdown ticker
@@ -92,91 +91,32 @@ func (d *Display) SetupLogPaths(clientConfigs []config.ClientConfig) {
 	}
 }
 
-// createClientCard creates a card view for a single client
-func (d *Display) createClientCard(info *consensus.ConsensusNodeInfo) *tview.TextView {
-	card := tview.NewTextView().
-		SetDynamicColors(true)
-	
-	card.SetBorder(true).
-		SetBorderPadding(0, 0, 1, 1).
-		SetTitle(fmt.Sprintf(" %s ", info.Name))
+func (d *Display) setupTable() {
+	d.table.Clear()
+	d.table.SetBorders(true).
+		SetFixed(1, 0).
+		SetSelectable(false, false)
 
-	// Update card content
-	d.updateClientCard(card, info)
-
-	return card
-}
-
-// updateClientCard updates the content of a client card
-func (d *Display) updateClientCard(card *tview.TextView, info *consensus.ConsensusNodeInfo) {
-	var status string
-	var statusColor string
-	var statusSymbol string
-
-	if !info.IsConnected {
-		status = "Offline"
-		statusColor = "red"
-		statusSymbol = StatusSymbolOffline
-	} else if info.IsSyncing {
-		status = "Syncing"
-		statusColor = "yellow"
-		statusSymbol = StatusSymbolSyncing
-	} else if info.IsOptimistic {
-		status = "Optimistic"
-		statusColor = "orange"
-		statusSymbol = StatusSymbolOptimistic
-	} else {
-		status = "Synced"
-		statusColor = "green"
-		statusSymbol = StatusSymbolSynced
+	// Define headers for compact view
+	headers := []string{
+		"Client",
+		"Status",
+		"Slot",
+		"Sync",
+		"Peers",
+		"Next",
+		"Epoch",
 	}
 
-	// Build card content
-	var content strings.Builder
-
-	// Status line
-	content.WriteString(fmt.Sprintf("[%s]%s %s[white]\n", statusColor, statusSymbol, status))
-
-	if info.IsConnected {
-		// Peer count
-		peerColor := "green"
-		if info.PeerCount < 10 {
-			peerColor = "red"
-		} else if info.PeerCount < 50 {
-			peerColor = "yellow"
-		}
-		content.WriteString(fmt.Sprintf("[%s]Peers: %d[white]\n", peerColor, info.PeerCount))
-
-		// Slot info
-		content.WriteString(fmt.Sprintf("Slot: %d/%d\n", info.CurrentSlot, info.HeadSlot))
-
-		// Sync info
-		if info.SyncDistance > 0 {
-			// Show progress bar for syncing
-			progress := float64(info.HeadSlot) / float64(info.CurrentSlot)
-			barWidth := 10
-			filled := int(progress * float64(barWidth))
-			progressBar := strings.Repeat("█", filled) + strings.Repeat("·", barWidth-filled)
-			content.WriteString(fmt.Sprintf("Sync: %d %s\n", info.SyncDistance, progressBar))
-		} else {
-			content.WriteString(fmt.Sprintf("Sync: 0 · Next: %s\n", d.formatDuration(info.TimeToNextSlot)))
-		}
-
-		// Epoch info
-		if info.FinalizedEpoch == info.CurrentEpoch {
-			content.WriteString(fmt.Sprintf("Epoch: %d [green]✓%d[white]", info.CurrentEpoch, info.FinalizedEpoch))
-		} else {
-			content.WriteString(fmt.Sprintf("Epoch: %d [yellow]✓%d[white]", info.CurrentEpoch, info.FinalizedEpoch))
-		}
-	} else {
-		// Disconnected state
-		content.WriteString("[gray]Peers: -\n")
-		content.WriteString("Slot: -\n")
-		content.WriteString("Sync: -\n")
-		content.WriteString("Epoch: -[white]")
+	// Set up header row with padding
+	for col, header := range headers {
+		paddedHeader := " " + header + " "
+		cell := tview.NewTableCell(paddedHeader).
+			SetTextColor(tcell.ColorYellow).
+			SetAlign(tview.AlignLeft).
+			SetSelectable(false)
+		d.table.SetCell(0, col, cell)
 	}
-
-	card.SetText(content.String())
 }
 
 func (d *Display) setupLayout() {
@@ -204,16 +144,16 @@ func (d *Display) updateLayout() {
 		AddItem(nil, 1, 0, false)      // Empty space
 
 	if d.showLogs {
-		// Split view: cards and logs
+		// Split view: table and logs
 		mainArea := tview.NewFlex().
 			SetDirection(tview.FlexRow).
-			AddItem(d.mainView, 0, 7, true).   // 70% for cards
+			AddItem(d.table, 0, 7, true).   // 70% for table
 			AddItem(d.logView, 0, 3, false) // 30% for logs
 
 		flex.AddItem(mainArea, 0, 1, true)
 	} else {
-		// Cards only
-		flex.AddItem(d.mainView, 0, 1, true)
+		// Table only
+		flex.AddItem(d.table, 0, 1, true)
 	}
 
 	flex.AddItem(d.help, 1, 0, false)
@@ -226,7 +166,7 @@ func (d *Display) updateLayout() {
 			d.app.Stop()
 			return nil
 		case 'r', 'R':
-			go d.updateCards(d.monitor.GetNodeInfos())
+			go d.updateTable(d.monitor.GetNodeInfos())
 			// Reset the next refresh time when manually refreshing
 			d.nextRefresh = time.Now().Add(d.refreshInterval)
 			return nil
@@ -292,11 +232,11 @@ func (d *Display) updateLogView() {
 
 func (d *Display) updateLoop() {
 	// Initial update
-	d.updateCards(d.monitor.GetNodeInfos())
+	d.updateTable(d.monitor.GetNodeInfos())
 
 	// Listen for updates
 	for infos := range d.monitor.Updates() {
-		d.updateCards(infos)
+		d.updateTable(infos)
 		// Reset the next refresh time
 		d.nextRefresh = time.Now().Add(d.refreshInterval)
 
@@ -307,9 +247,9 @@ func (d *Display) updateLoop() {
 	}
 }
 
-func (d *Display) updateCards(infos []*consensus.ConsensusNodeInfo) {
+func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 	// Validate inputs
-	if d == nil || d.app == nil {
+	if d == nil || d.app == nil || d.table == nil {
 		return
 	}
 	if infos == nil {
@@ -317,65 +257,137 @@ func (d *Display) updateCards(infos []*consensus.ConsensusNodeInfo) {
 	}
 
 	d.app.QueueUpdateDraw(func() {
-		// Clear existing cards
-		d.mainView.Clear()
-		d.clientCards = d.clientCards[:0]
-
-		// Determine layout based on terminal width
-		_, _, width, _ := d.mainView.GetInnerRect()
-		cardsPerRow := 1
-		if width > 100 {
-			cardsPerRow = 2
-		}
-		if width > 150 {
-			cardsPerRow = 3
-		}
-
-		// Create grid layout
-		grid := tview.NewGrid()
-		rows := (len(infos) + cardsPerRow - 1) / cardsPerRow
-
-		// Set up grid dimensions - all rows and columns have equal size (0 means flexible)
-		rowSizes := make([]int, rows)
-		colSizes := make([]int, cardsPerRow)
-		grid.SetRows(rowSizes...)
-		grid.SetColumns(colSizes...)
-
-		// Add cards to grid
-		for i, info := range infos {
+		// Update table rows
+		for row, info := range infos {
 			if info == nil {
 				continue
 			}
 
-			card := d.createClientCard(info)
-			d.clientCards = append(d.clientCards, card)
+			tableRow := row + 1 // +1 for header
+			col := 0
 
-			row := i / cardsPerRow
-			col := i % cardsPerRow
-			grid.AddItem(card, row, col, 1, 1, 0, 0, false)
+			// Client name
+			d.setCell(tableRow, col, info.Name, tcell.ColorWhite)
+			col++
+
+			// Status with symbol
+			status, statusColor, statusSymbol := d.getStatusInfo(info)
+			statusText := fmt.Sprintf("%s %s", statusSymbol, status)
+			d.setCell(tableRow, col, statusText, statusColor)
+			col++
+
+			// Slot - show current/head when syncing, just current when synced
+			var slotText string
+			if info.IsConnected {
+				if info.SyncDistance > 0 {
+					slotText = fmt.Sprintf("%d/%d", info.CurrentSlot, info.HeadSlot)
+				} else {
+					slotText = fmt.Sprintf("%d", info.CurrentSlot)
+				}
+			} else {
+				slotText = "-"
+			}
+			d.setCell(tableRow, col, slotText, tcell.ColorWhite)
+			col++
+
+			// Sync distance with color
+			var syncText string
+			var syncColor tcell.Color
+			if info.IsConnected {
+				syncText = fmt.Sprintf("%d", info.SyncDistance)
+				if info.SyncDistance == 0 {
+					syncColor = tcell.ColorGreen
+				} else if info.SyncDistance < 100 {
+					syncColor = tcell.ColorYellow
+				} else {
+					syncColor = tcell.ColorRed
+				}
+			} else {
+				syncText = "-"
+				syncColor = tcell.ColorGray
+			}
+			d.setCell(tableRow, col, syncText, syncColor)
+			col++
+
+			// Peers with color
+			var peerText string
+			var peerColor tcell.Color
+			if info.IsConnected && info.PeerCount > 0 {
+				peerText = fmt.Sprintf("%d", info.PeerCount)
+				if info.PeerCount >= 50 {
+					peerColor = tcell.ColorGreen
+				} else if info.PeerCount >= 10 {
+					peerColor = tcell.ColorYellow
+				} else {
+					peerColor = tcell.ColorRed
+				}
+			} else {
+				peerText = "-"
+				peerColor = tcell.ColorGray
+			}
+			d.setCell(tableRow, col, peerText, peerColor)
+			col++
+
+			// Next slot time
+			var nextText string
+			if info.IsConnected && info.TimeToNextSlot > 0 {
+				nextText = d.formatDuration(info.TimeToNextSlot)
+			} else {
+				nextText = "-"
+			}
+			d.setCell(tableRow, col, nextText, tcell.ColorWhite)
+			col++
+
+			// Epoch with finalized checkmark
+			var epochText string
+			if info.IsConnected {
+				if info.FinalizedEpoch == info.CurrentEpoch {
+					epochText = fmt.Sprintf("%d ✓%d", info.CurrentEpoch, info.FinalizedEpoch)
+				} else {
+					epochText = fmt.Sprintf("%d ✓%d", info.CurrentEpoch, info.FinalizedEpoch)
+				}
+			} else {
+				epochText = "-"
+			}
+			d.setCell(tableRow, col, epochText, tcell.ColorWhite)
 		}
-
-		// Add grid to main view
-		d.mainView.AddItem(grid, 0, 1, false)
 	})
 }
 
-
-func (d *Display) getStatus(info *consensus.ConsensusNodeInfo) (string, tcell.Color) {
-	if info == nil {
-		return "Unknown", tcell.ColorGray
+func (d *Display) setCell(row, col int, text string, color tcell.Color) {
+	// Bounds check
+	if row < 0 || col < 0 {
+		return
 	}
-	if !info.IsConnected {
-		return "Offline", tcell.ColorRed
+
+	// Add padding to cell content
+	paddedText := " " + text + " "
+	
+	cell := d.table.GetCell(row, col)
+	if cell == nil {
+		cell = tview.NewTableCell(paddedText).
+			SetTextColor(color).
+			SetAlign(tview.AlignLeft)
+		d.table.SetCell(row, col, cell)
+	} else {
+		cell.SetText(paddedText).SetTextColor(color)
+	}
+}
+
+func (d *Display) getStatusInfo(info *consensus.ConsensusNodeInfo) (string, tcell.Color, string) {
+	if info == nil || !info.IsConnected {
+		return "Offline", tcell.ColorRed, StatusSymbolOffline
 	}
 	if info.IsSyncing {
-		return "Syncing", tcell.ColorYellow
+		return "Syncing", tcell.ColorYellow, StatusSymbolSyncing
 	}
 	if info.IsOptimistic {
-		return "Optimistic", tcell.ColorOrange
+		return "Optimistic", tcell.ColorOrange, StatusSymbolOptimistic
 	}
-	return "Synced", tcell.ColorGreen
+	return "Synced", tcell.ColorGreen, StatusSymbolSynced
 }
+
+
 
 func (d *Display) formatDuration(duration time.Duration) string {
 	if duration < 0 {
