@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -115,8 +117,18 @@ func (c *BeaconClient) GetChainConfig(ctx context.Context) (*ChainConfig, error)
 		return nil, fmt.Errorf("failed to parse genesis time: %w", err)
 	}
 
-	secondsPerSlot, _ := strconv.ParseUint(spec.Data["SECONDS_PER_SLOT"], 10, 64)
-	slotsPerEpoch, _ := strconv.ParseUint(spec.Data["SLOTS_PER_EPOCH"], 10, 64)
+	// Extract string values from interface{}
+	secondsPerSlotStr, ok := spec.Data["SECONDS_PER_SLOT"].(string)
+	if !ok {
+		return nil, fmt.Errorf("SECONDS_PER_SLOT is not a string")
+	}
+	slotsPerEpochStr, ok := spec.Data["SLOTS_PER_EPOCH"].(string)
+	if !ok {
+		return nil, fmt.Errorf("SLOTS_PER_EPOCH is not a string")
+	}
+	
+	secondsPerSlot, _ := strconv.ParseUint(secondsPerSlotStr, 10, 64)
+	slotsPerEpoch, _ := strconv.ParseUint(slotsPerEpochStr, 10, 64)
 
 	return &ChainConfig{
 		SecondsPerSlot: secondsPerSlot,
@@ -125,7 +137,7 @@ func (c *BeaconClient) GetChainConfig(ctx context.Context) (*ChainConfig, error)
 	}, nil
 }
 
-func (c *BeaconClient) get(ctx context.Context, path string, v interface{}) error {
+func (c *BeaconClient) get(ctx context.Context, path string, v any) error {
 	url := fmt.Sprintf("%s%s", c.endpoint, path)
 	
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -143,7 +155,17 @@ func (c *BeaconClient) get(ctx context.Context, path string, v interface{}) erro
 		return fmt.Errorf("HTTP %d for %s", resp.StatusCode, path)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+	// Read the body for debugging
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Decode the response
+	if err := json.Unmarshal(body, v); err != nil {
+		// Only log errors when verbose logging is enabled
+		log.Printf("ERROR: Failed to decode response from %s: %v", url, err)
+		log.Printf("ERROR: Response body: %s", string(body))
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 

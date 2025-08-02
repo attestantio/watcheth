@@ -3,12 +3,18 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/watcheth/watcheth/internal/beacon"
 	"github.com/watcheth/watcheth/internal/config"
+)
+
+var (
+	verbose bool
 )
 
 var listCmd = &cobra.Command{
@@ -20,6 +26,7 @@ var listCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(listCmd)
+	listCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show verbose debug output")
 }
 
 func runList(cmd *cobra.Command, args []string) {
@@ -39,6 +46,11 @@ func runList(cmd *cobra.Command, args []string) {
 	if len(cfg.Clients) == 0 {
 		fmt.Println("No clients configured. Using default configuration.")
 		cfg = config.DefaultConfig
+	}
+
+	// Enable logging if verbose flag is set
+	if !verbose {
+		log.SetOutput(io.Discard)
 	}
 
 	fmt.Printf("Checking %d beacon nodes...\n\n", len(cfg.Clients))

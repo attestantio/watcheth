@@ -71,7 +71,7 @@ type FinalityCheckpointsResponse struct {
 }
 
 type SpecResponse struct {
-	Data map[string]string `json:"data"`
+	Data map[string]any `json:"data"`
 }
 
 type SyncingResponse struct {

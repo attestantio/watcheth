@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -60,8 +62,34 @@ func runDebug(cmd *cobra.Command, args []string) {
 
 		if resp.StatusCode == http.StatusOK {
 			fmt.Printf(" ✅ OK (200)\n")
+			
+			// Read and display response body for spec endpoint
+			if path == "/eth/v1/config/spec" {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Printf("   Error reading body: %v\n", err)
+				} else {
+					fmt.Printf("   Response preview (first 500 chars):\n   %s\n", truncateString(string(body), 500))
+					
+					// Try to parse as JSON to show structure
+					var rawJSON any
+					if err := json.Unmarshal(body, &rawJSON); err != nil {
+						fmt.Printf("   Failed to parse JSON: %v\n", err)
+					} else {
+						formatted, _ := json.MarshalIndent(rawJSON, "   ", "  ")
+						fmt.Printf("   JSON structure:\n   %s\n", truncateString(string(formatted), 1000))
+					}
+				}
+			}
 		} else {
 			fmt.Printf(" ❌ Status: %d\n", resp.StatusCode)
 		}
 	}
+}
+
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "... (truncated)"
 }
