@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/watcheth/watcheth/internal/logger"
 )
 
 var debugCmd = &cobra.Command{
@@ -24,6 +25,9 @@ func init() {
 }
 
 func runDebug(cmd *cobra.Command, args []string) {
+	// Initialize logger based on debug flag
+	logger.SetDebugMode(IsDebugMode())
+
 	endpoint := args[0]
 	fmt.Printf("Testing consensus client at: %s\n\n", endpoint)
 

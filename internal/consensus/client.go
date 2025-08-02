@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/watcheth/watcheth/internal/logger"
 )
 
 type Client interface {
@@ -27,7 +28,7 @@ func NewConsensusClient(name, endpoint string) *ConsensusClient {
 		name:     name,
 		endpoint: endpoint,
 		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: 10 * time.Second, // Increased from 5s to 10s for better reliability
 		},
 	}
 }
@@ -43,6 +44,7 @@ func (c *ConsensusClient) GetNodeInfo(ctx context.Context) (*ConsensusNodeInfo, 
 	if err != nil {
 		info.IsConnected = false
 		info.LastError = err
+		logger.Error("[%s]: Failed to get chain config: %v", c.name, err)
 		return info, nil
 	}
 
@@ -50,6 +52,7 @@ func (c *ConsensusClient) GetNodeInfo(ctx context.Context) (*ConsensusNodeInfo, 
 	if err != nil {
 		info.IsConnected = false
 		info.LastError = err
+		logger.Error("[%s]: Failed to get syncing status: %v", c.name, err)
 		return info, nil
 	}
 
@@ -73,6 +76,7 @@ func (c *ConsensusClient) GetNodeInfo(ctx context.Context) (*ConsensusNodeInfo, 
 	if err != nil {
 		info.IsConnected = false
 		info.LastError = err
+		logger.Error("[%s]: Failed to get finality checkpoints: %v", c.name, err)
 		return info, nil
 	}
 
@@ -80,22 +84,35 @@ func (c *ConsensusClient) GetNodeInfo(ctx context.Context) (*ConsensusNodeInfo, 
 	finalizedEpoch, _ := strconv.ParseUint(finality.Data.Finalized.Epoch, 10, 64)
 	info.JustifiedEpoch = justifiedEpoch
 	info.FinalizedEpoch = finalizedEpoch
-	info.JustifiedSlot = justifiedEpoch * chainConfig.SlotsPerEpoch
-	info.FinalizedSlot = finalizedEpoch * chainConfig.SlotsPerEpoch
+
+	// Safely calculate slot numbers with overflow protection
+	if justifiedEpoch > 0 && justifiedEpoch <= (^uint64(0))/chainConfig.SlotsPerEpoch {
+		info.JustifiedSlot = justifiedEpoch * chainConfig.SlotsPerEpoch
+	}
+	if finalizedEpoch > 0 && finalizedEpoch <= (^uint64(0))/chainConfig.SlotsPerEpoch {
+		info.FinalizedSlot = finalizedEpoch * chainConfig.SlotsPerEpoch
+	}
 
 	currentTime := time.Now()
 	timeSinceGenesis := currentTime.Sub(chainConfig.GenesisTime)
-	currentSlot := uint64(timeSinceGenesis.Seconds()) / chainConfig.SecondsPerSlot
-	info.CurrentSlot = currentSlot
-	info.CurrentEpoch = currentSlot / chainConfig.SlotsPerEpoch
 
-	slotDuration := time.Duration(chainConfig.SecondsPerSlot) * time.Second
-	timeInCurrentSlot := time.Duration(uint64(timeSinceGenesis.Seconds())%chainConfig.SecondsPerSlot) * time.Second
-	info.TimeToNextSlot = slotDuration - timeInCurrentSlot
+	// Only calculate current slot if time since genesis is positive
+	if timeSinceGenesis > 0 {
+		currentSlot := uint64(timeSinceGenesis.Seconds()) / chainConfig.SecondsPerSlot
+		info.CurrentSlot = currentSlot
+		info.CurrentEpoch = currentSlot / chainConfig.SlotsPerEpoch
+	}
 
-	slotsInCurrentEpoch := currentSlot % chainConfig.SlotsPerEpoch
-	slotsUntilNextEpoch := chainConfig.SlotsPerEpoch - slotsInCurrentEpoch
-	info.TimeToNextEpoch = info.TimeToNextSlot + time.Duration((slotsUntilNextEpoch-1)*chainConfig.SecondsPerSlot)*time.Second
+	// Only calculate timing information if we have valid slot data
+	if timeSinceGenesis > 0 && info.CurrentSlot > 0 {
+		slotDuration := time.Duration(chainConfig.SecondsPerSlot) * time.Second
+		timeInCurrentSlot := time.Duration(uint64(timeSinceGenesis.Seconds())%chainConfig.SecondsPerSlot) * time.Second
+		info.TimeToNextSlot = slotDuration - timeInCurrentSlot
+
+		slotsInCurrentEpoch := info.CurrentSlot % chainConfig.SlotsPerEpoch
+		slotsUntilNextEpoch := chainConfig.SlotsPerEpoch - slotsInCurrentEpoch
+		info.TimeToNextEpoch = info.TimeToNextSlot + time.Duration((slotsUntilNextEpoch-1)*chainConfig.SecondsPerSlot)*time.Second
+	}
 
 	// Get peer count
 	peerCount, err := c.getPeerCount(ctx)
@@ -117,6 +134,7 @@ func (c *ConsensusClient) GetNodeInfo(ctx context.Context) (*ConsensusNodeInfo, 
 	}
 
 	info.IsConnected = true
+	logger.Info("[%s]: Successfully connected and retrieved node info", c.name)
 	return info, nil
 }
 
@@ -146,8 +164,21 @@ func (c *ConsensusClient) GetChainConfig(ctx context.Context) (*ChainConfig, err
 		return nil, fmt.Errorf("SLOTS_PER_EPOCH is not a string")
 	}
 
-	secondsPerSlot, _ := strconv.ParseUint(secondsPerSlotStr, 10, 64)
-	slotsPerEpoch, _ := strconv.ParseUint(slotsPerEpochStr, 10, 64)
+	secondsPerSlot, err := strconv.ParseUint(secondsPerSlotStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SECONDS_PER_SLOT: %w", err)
+	}
+	if secondsPerSlot == 0 {
+		return nil, fmt.Errorf("SECONDS_PER_SLOT cannot be zero")
+	}
+
+	slotsPerEpoch, err := strconv.ParseUint(slotsPerEpochStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SLOTS_PER_EPOCH: %w", err)
+	}
+	if slotsPerEpoch == 0 {
+		return nil, fmt.Errorf("SLOTS_PER_EPOCH cannot be zero")
+	}
 
 	return &ChainConfig{
 		SecondsPerSlot: secondsPerSlot,
@@ -158,37 +189,70 @@ func (c *ConsensusClient) GetChainConfig(ctx context.Context) (*ChainConfig, err
 
 func (c *ConsensusClient) get(ctx context.Context, path string, v any) error {
 	url := fmt.Sprintf("%s%s", c.endpoint, path)
+	maxRetries := 3
+	baseDelay := 100 * time.Millisecond
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Add delay for retries (exponential backoff)
+		if attempt > 0 {
+			delay := baseDelay * time.Duration(1<<(attempt-1)) // 100ms, 200ms, 400ms
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			// Check if this is the last attempt
+			if attempt == maxRetries-1 {
+				return fmt.Errorf("failed to execute request after %d attempts: %w", maxRetries, err)
+			}
+			// Log and retry for network errors
+			logger.Debug("Request failed (attempt %d/%d) for %s: %v", attempt+1, maxRetries, url, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			// Don't retry for client errors (4xx), but retry for server errors (5xx)
+			if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+				return fmt.Errorf("HTTP %d for %s", resp.StatusCode, path)
+			}
+			if attempt == maxRetries-1 {
+				return fmt.Errorf("HTTP %d for %s after %d attempts", resp.StatusCode, path, maxRetries)
+			}
+			logger.Debug("Server error %d (attempt %d/%d) for %s", resp.StatusCode, attempt+1, maxRetries, url)
+			continue
+		}
+
+		// Read the body for debugging
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			if attempt == maxRetries-1 {
+				return fmt.Errorf("failed to read response body after %d attempts: %w", maxRetries, err)
+			}
+			continue
+		}
+
+		// Decode the response
+		if err := json.Unmarshal(body, v); err != nil {
+			// JSON parsing errors are not retryable
+			logger.Error("Failed to decode response from %s: %v", url, err)
+			logger.Error("Response body: %s", string(body))
+			return fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return nil // Success
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d for %s", resp.StatusCode, path)
-	}
-
-	// Read the body for debugging
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Decode the response
-	if err := json.Unmarshal(body, v); err != nil {
-		// Only log errors when verbose logging is enabled
-		log.Printf("ERROR: Failed to decode response from %s: %v", url, err)
-		log.Printf("ERROR: Response body: %s", string(body))
-		return fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return nil
+	return fmt.Errorf("exhausted all retry attempts for %s", url)
 }
 
 func (c *ConsensusClient) getGenesis(ctx context.Context) (*GenesisResponse, error) {

@@ -3,14 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
-	"log"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/watcheth/watcheth/internal/config"
 	"github.com/watcheth/watcheth/internal/consensus"
+	"github.com/watcheth/watcheth/internal/logger"
 )
 
 var (
@@ -30,6 +29,9 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) {
+	// Initialize logger based on debug flag or verbose flag
+	logger.SetDebugMode(IsDebugMode() || verbose)
+
 	var cfg config.Config
 
 	if err := viper.Unmarshal(&cfg); err != nil {
@@ -49,10 +51,7 @@ func runList(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// Enable logging if verbose flag is set
-	if !verbose {
-		log.SetOutput(io.Discard)
-	}
+	// Logger is already initialized based on flags
 
 	fmt.Printf("Checking %d consensus clients...\n\n", len(cfg.Clients))
 

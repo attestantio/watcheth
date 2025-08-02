@@ -8,7 +8,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile   string
+	debugMode bool
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "watcheth",
@@ -31,6 +34,12 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./watcheth.yaml)")
+	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "enable debug logging")
+}
+
+// IsDebugMode returns whether debug mode is enabled
+func IsDebugMode() bool {
+	return debugMode
 }
 
 func initConfig() {

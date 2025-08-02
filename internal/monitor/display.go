@@ -287,6 +287,14 @@ func (d *Display) updateLoop() {
 }
 
 func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
+	// Validate inputs
+	if d == nil || d.app == nil || d.table == nil {
+		return
+	}
+	if infos == nil {
+		infos = []*consensus.ConsensusNodeInfo{} // Empty slice to prevent crashes
+	}
+
 	d.app.QueueUpdateDraw(func() {
 		// Determine column count based on view mode
 		var columnCount int
@@ -297,6 +305,8 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 			columnCount = 5
 		case ViewConsensus:
 			columnCount = 5
+		default:
+			columnCount = 5 // Safe fallback
 		}
 
 		// Ensure we have enough rows in the table
@@ -312,7 +322,17 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 
 		// Update each row with node info
 		for row, info := range infos {
+			// Validate individual info items
+			if info == nil {
+				continue // Skip nil entries
+			}
+
 			tableRow := row + 1
+
+			// Bounds check for table row
+			if tableRow >= d.table.GetRowCount() {
+				continue // Skip if row doesn't exist
+			}
 
 			switch d.viewMode {
 			case ViewCompact:
@@ -327,6 +347,14 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 }
 
 func (d *Display) setCell(row, col int, text string, color tcell.Color) {
+	// Bounds check
+	if d == nil || d.table == nil {
+		return
+	}
+	if row < 0 || col < 0 {
+		return
+	}
+
 	// Add padding to cell content
 	paddedText := " " + text + " "
 	cell := d.table.GetCell(row, col)
@@ -341,6 +369,9 @@ func (d *Display) setCell(row, col int, text string, color tcell.Color) {
 }
 
 func (d *Display) getStatus(info *consensus.ConsensusNodeInfo) (string, tcell.Color) {
+	if info == nil {
+		return "Unknown", tcell.ColorGray
+	}
 	if !info.IsConnected {
 		return "Offline", tcell.ColorRed
 	}
@@ -428,23 +459,35 @@ func (d *Display) updateCompactView(row int, info *consensus.ConsensusNodeInfo) 
 	col++
 
 	// Current Slot
-	d.setCell(row, col, fmt.Sprintf("%d", info.CurrentSlot), tcell.ColorWhite)
+	if info.IsConnected {
+		d.setCell(row, col, fmt.Sprintf("%d", info.CurrentSlot), tcell.ColorWhite)
+	} else {
+		d.setCell(row, col, "-", tcell.ColorBlack)
+	}
 	col++
 
 	// Head Slot
-	d.setCell(row, col, fmt.Sprintf("%d", info.HeadSlot), tcell.ColorWhite)
+	if info.IsConnected {
+		d.setCell(row, col, fmt.Sprintf("%d", info.HeadSlot), tcell.ColorWhite)
+	} else {
+		d.setCell(row, col, "-", tcell.ColorBlack)
+	}
 	col++
 
 	// Sync Distance
-	syncDistance := fmt.Sprintf("%d", info.SyncDistance)
-	syncColor := tcell.ColorGreen
-	if info.SyncDistance > 0 {
-		syncColor = tcell.ColorYellow
+	if info.IsConnected {
+		syncDistance := fmt.Sprintf("%d", info.SyncDistance)
+		syncColor := tcell.ColorGreen
+		if info.SyncDistance > 0 {
+			syncColor = tcell.ColorYellow
+		}
+		if info.SyncDistance > 100 {
+			syncColor = tcell.ColorRed
+		}
+		d.setCell(row, col, syncDistance, syncColor)
+	} else {
+		d.setCell(row, col, "-", tcell.ColorBlack)
 	}
-	if info.SyncDistance > 100 {
-		syncColor = tcell.ColorRed
-	}
-	d.setCell(row, col, syncDistance, syncColor)
 	col++
 
 	// Next Slot
@@ -505,15 +548,27 @@ func (d *Display) updateConsensusView(row int, info *consensus.ConsensusNodeInfo
 	col++
 
 	// Current Epoch
-	d.setCell(row, col, fmt.Sprintf("%d", info.CurrentEpoch), tcell.ColorWhite)
+	if info.IsConnected {
+		d.setCell(row, col, fmt.Sprintf("%d", info.CurrentEpoch), tcell.ColorWhite)
+	} else {
+		d.setCell(row, col, "-", tcell.ColorBlack)
+	}
 	col++
 
 	// Justified
-	d.setCell(row, col, fmt.Sprintf("%d", info.JustifiedEpoch), tcell.ColorWhite)
+	if info.IsConnected {
+		d.setCell(row, col, fmt.Sprintf("%d", info.JustifiedEpoch), tcell.ColorWhite)
+	} else {
+		d.setCell(row, col, "-", tcell.ColorBlack)
+	}
 	col++
 
 	// Finalized
-	d.setCell(row, col, fmt.Sprintf("%d", info.FinalizedEpoch), tcell.ColorWhite)
+	if info.IsConnected {
+		d.setCell(row, col, fmt.Sprintf("%d", info.FinalizedEpoch), tcell.ColorWhite)
+	} else {
+		d.setCell(row, col, "-", tcell.ColorBlack)
+	}
 	col++
 
 	// Next Epoch In

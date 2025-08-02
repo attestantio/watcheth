@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/watcheth/watcheth/internal/config"
 	"github.com/watcheth/watcheth/internal/consensus"
+	"github.com/watcheth/watcheth/internal/logger"
 	"github.com/watcheth/watcheth/internal/monitor"
 )
 
@@ -26,6 +27,9 @@ func init() {
 }
 
 func runMonitor(cmd *cobra.Command, args []string) {
+	// Initialize logger based on debug flag
+	logger.SetDebugMode(IsDebugMode())
+
 	var cfg config.Config
 
 	if err := viper.Unmarshal(&cfg); err != nil {
