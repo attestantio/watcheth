@@ -94,3 +94,7 @@ func (m *Monitor) GetNodeInfos() []*beacon.BeaconNodeInfo {
 func (m *Monitor) Updates() <-chan []*beacon.BeaconNodeInfo {
 	return m.updateChan
 }
+
+func (m *Monitor) GetRefreshInterval() time.Duration {
+	return m.refreshInterval
+}

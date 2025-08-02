@@ -19,26 +19,35 @@ const (
 )
 
 type Display struct {
-	app      *tview.Application
-	table    *tview.Table
-	monitor  *Monitor
-	viewMode ViewMode
-	help     *tview.TextView
+	app             *tview.Application
+	table           *tview.Table
+	monitor         *Monitor
+	viewMode        ViewMode
+	help            *tview.TextView
+	refreshInterval time.Duration
+	nextRefresh     time.Time
+	countdownTicker *time.Ticker
 }
 
 func NewDisplay(monitor *Monitor) *Display {
 	return &Display{
-		app:      tview.NewApplication(),
-		table:    tview.NewTable(),
-		monitor:  monitor,
-		viewMode: ViewCompact,
-		help:     tview.NewTextView(),
+		app:             tview.NewApplication(),
+		table:           tview.NewTable(),
+		monitor:         monitor,
+		viewMode:        ViewCompact,
+		help:            tview.NewTextView(),
+		refreshInterval: monitor.GetRefreshInterval(),
+		nextRefresh:     time.Now().Add(monitor.GetRefreshInterval()),
 	}
 }
 
 func (d *Display) Run() error {
 	d.setupTable()
 	d.setupLayout()
+
+	// Start countdown ticker
+	d.countdownTicker = time.NewTicker(time.Second)
+	go d.countdownLoop()
 
 	go d.updateLoop()
 
@@ -131,6 +140,8 @@ func (d *Display) setupLayout() {
 			return nil
 		case 'r', 'R':
 			go d.updateTable(d.monitor.GetNodeInfos())
+			// Reset the next refresh time when manually refreshing
+			d.nextRefresh = time.Now().Add(d.refreshInterval)
 			return nil
 		case '1':
 			d.viewMode = ViewCompact
@@ -168,6 +179,8 @@ func (d *Display) updateLoop() {
 	// Listen for updates
 	for infos := range d.monitor.Updates() {
 		d.updateTable(infos)
+		// Reset the next refresh time
+		d.nextRefresh = time.Now().Add(d.refreshInterval)
 	}
 }
 
@@ -277,7 +290,14 @@ func (d *Display) updateHelpText() {
 		viewName = "Full"
 	}
 
-	helpText := fmt.Sprintf("[%s View] q:Quit | r:Refresh | 1:Compact | 2:Network | 3:Consensus | 4:Full", viewName)
+	// Calculate time until next refresh
+	timeLeft := time.Until(d.nextRefresh)
+	if timeLeft < 0 {
+		timeLeft = 0
+	}
+
+	helpText := fmt.Sprintf("[%s View] q:Quit | r:Refresh | 1:Compact | 2:Network | 3:Consensus | 4:Full | Next refresh: %ds",
+		viewName, int(timeLeft.Seconds()))
 	d.help.SetText(helpText)
 }
 
@@ -491,5 +511,18 @@ func (d *Display) updateFullView(row int, info *beacon.BeaconNodeInfo) {
 		d.setCell(row, col, d.formatDuration(info.TimeToNextEpoch), tcell.ColorWhite)
 	} else {
 		d.setCell(row, col, "-", tcell.ColorBlack)
+	}
+}
+
+func (d *Display) countdownLoop() {
+	defer d.countdownTicker.Stop()
+
+	for {
+		select {
+		case <-d.countdownTicker.C:
+			d.app.QueueUpdateDraw(func() {
+				d.updateHelpText()
+			})
+		}
 	}
 }
