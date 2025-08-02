@@ -1,6 +1,8 @@
 module github.com/watcheth/watcheth
 
-go 1.24.5
+go 1.21.0
+
+toolchain go1.24.5
 
 require (
 	github.com/gdamore/tcell/v2 v2.8.1

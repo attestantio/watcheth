@@ -92,18 +92,28 @@ func (d *Display) setupLayout() {
 }
 
 func (d *Display) updateLoop() {
+	// Initial update
 	d.updateTable(d.monitor.GetNodeInfos())
 
-	for {
-		select {
-		case infos := <-d.monitor.Updates():
-			d.updateTable(infos)
-		}
+	// Listen for updates
+	for infos := range d.monitor.Updates() {
+		d.updateTable(infos)
 	}
 }
 
 func (d *Display) updateTable(infos []*beacon.BeaconNodeInfo) {
 	d.app.QueueUpdateDraw(func() {
+		// Ensure we have enough rows in the table
+		currentRows := d.table.GetRowCount()
+		neededRows := len(infos) + 1 // +1 for header
+		
+		// Add empty rows if needed
+		for i := currentRows; i < neededRows; i++ {
+			for j := 0; j < 10; j++ {
+				d.table.SetCell(i, j, tview.NewTableCell(""))
+			}
+		}
+		
 		for row, info := range infos {
 			tableRow := row + 1
 

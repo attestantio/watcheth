@@ -62,11 +62,8 @@ func (m *Monitor) updateAll(ctx context.Context) {
 			
 			info, err := c.GetNodeInfo(updateCtx)
 			if err != nil {
-				results[idx] = &beacon.BeaconNodeInfo{
-					IsConnected: false,
-					LastError:   err,
-					LastUpdate:  time.Now(),
-				}
+				// GetNodeInfo already returns a properly populated info even on error
+				results[idx] = info
 			} else {
 				results[idx] = info
 			}
