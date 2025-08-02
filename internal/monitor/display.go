@@ -111,7 +111,7 @@ func (d *Display) setupTable() {
 func (d *Display) getHeaders() []string {
 	return []string{
 		"Client",
-		"Status", 
+		"Status",
 		"Slot",
 		"Peers",
 		"Next In",
@@ -261,7 +261,7 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 		// Ensure we have enough rows in the table
 		currentRows := d.table.GetRowCount()
 		neededRows := len(infos) + 1 // +1 for header
-		
+
 		// Add rows if needed
 		columnCount := len(d.getHeaders())
 		for i := currentRows; i < neededRows; i++ {
@@ -269,7 +269,7 @@ func (d *Display) updateTable(infos []*consensus.ConsensusNodeInfo) {
 				d.table.SetCell(i, j, tview.NewTableCell(""))
 			}
 		}
-		
+
 		// Update table rows
 		for row, info := range infos {
 			if info == nil {
@@ -352,7 +352,7 @@ func (d *Display) setCell(row, col int, text string, color tcell.Color) {
 
 	// Add padding to cell content
 	paddedText := " " + text + " "
-	
+
 	cell := d.table.GetCell(row, col)
 	if cell == nil {
 		cell = tview.NewTableCell(paddedText).
@@ -370,10 +370,10 @@ func (d *Display) setCellWithColoredArrow(row, col int, baseText string, hasArro
 		d.setCell(row, col, baseText, baseColor)
 		return
 	}
-	
+
 	// Format text with arrow
 	text := fmt.Sprintf("%s ↓%d", baseText, arrowValue)
-	
+
 	// Determine color based on value
 	var cellColor tcell.Color
 	if arrowValue >= thresholdRed {
@@ -383,7 +383,7 @@ func (d *Display) setCellWithColoredArrow(row, col int, baseText string, hasArro
 	} else {
 		cellColor = baseColor
 	}
-	
+
 	d.setCell(row, col, text, cellColor)
 }
 
@@ -399,8 +399,6 @@ func (d *Display) getStatusInfo(info *consensus.ConsensusNodeInfo) (string, tcel
 	}
 	return "Synced", tcell.ColorGreen, StatusSymbolSynced
 }
-
-
 
 func (d *Display) formatDuration(duration time.Duration) string {
 	if duration < 0 {
@@ -439,7 +437,6 @@ func (d *Display) updateHelpText() {
 		logHelp, int(timeLeft.Seconds()))
 	d.help.SetText(helpText)
 }
-
 
 func (d *Display) countdownLoop() {
 	defer d.countdownTicker.Stop()

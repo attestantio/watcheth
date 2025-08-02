@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,16 +13,21 @@ import (
 	"github.com/watcheth/watcheth/internal/logger"
 )
 
+var (
+	clientType string
+)
+
 var debugCmd = &cobra.Command{
 	Use:   "debug [endpoint]",
-	Short: "Debug consensus client endpoint",
-	Long:  `Test various API endpoints on a consensus client to see what's available.`,
+	Short: "Debug client endpoint",
+	Long:  `Test various API endpoints on a consensus or execution client to see what's available.`,
 	Args:  cobra.ExactArgs(1),
 	Run:   runDebug,
 }
 
 func init() {
 	rootCmd.AddCommand(debugCmd)
+	debugCmd.Flags().StringVarP(&clientType, "type", "t", "consensus", "Client type (consensus or execution)")
 }
 
 func runDebug(cmd *cobra.Command, args []string) {
@@ -29,6 +35,15 @@ func runDebug(cmd *cobra.Command, args []string) {
 	logger.SetDebugMode(IsDebugMode())
 
 	endpoint := args[0]
+
+	if clientType == "execution" {
+		debugExecutionClient(endpoint)
+	} else {
+		debugConsensusClient(endpoint)
+	}
+}
+
+func debugConsensusClient(endpoint string) {
 	fmt.Printf("Testing consensus client at: %s\n\n", endpoint)
 
 	endpoints := []string{
@@ -87,6 +102,86 @@ func runDebug(cmd *cobra.Command, args []string) {
 			}
 		} else {
 			fmt.Printf(" ❌ Status: %d\n", resp.StatusCode)
+		}
+	}
+}
+
+func debugExecutionClient(endpoint string) {
+	fmt.Printf("Testing execution client at: %s\n\n", endpoint)
+
+	// Test JSON-RPC methods
+	methods := []string{
+		"eth_syncing",
+		"eth_blockNumber",
+		"net_peerCount",
+		"eth_chainId",
+		"eth_gasPrice",
+		"web3_clientVersion",
+		"net_version",
+		"eth_protocolVersion",
+	}
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	for _, method := range methods {
+		fmt.Printf("Testing %s...", method)
+
+		// Create JSON-RPC request
+		jsonReq := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"method":  method,
+			"params":  []interface{}{},
+			"id":      1,
+		}
+
+		jsonData, err := json.Marshal(jsonReq)
+		if err != nil {
+			fmt.Printf(" ❌ Error marshaling request: %v\n", err)
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(jsonData))
+		if err != nil {
+			fmt.Printf(" ❌ Error creating request: %v\n", err)
+			cancel()
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
+		cancel()
+
+		if err != nil {
+			fmt.Printf(" ❌ Error: %v\n", err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf(" ❌ Error reading body: %v\n", err)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			fmt.Printf(" ✅ OK (200)\n")
+
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				fmt.Printf("   Failed to parse JSON: %v\n", err)
+			} else {
+				if res, ok := result["result"]; ok {
+					fmt.Printf("   Result: %v\n", res)
+				} else if errMsg, ok := result["error"]; ok {
+					fmt.Printf("   Error: %v\n", errMsg)
+				}
+			}
+		} else {
+			fmt.Printf(" ❌ Status: %d\n", resp.StatusCode)
+			fmt.Printf("   Response: %s\n", string(body))
 		}
 	}
 }

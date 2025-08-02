@@ -12,6 +12,7 @@ type Config struct {
 
 type ClientConfig struct {
 	Name     string `mapstructure:"name"`
+	Type     string `mapstructure:"type"` // "consensus" or "execution"
 	Endpoint string `mapstructure:"endpoint"`
 	LogPath  string `mapstructure:"log_path"`
 }
@@ -32,4 +33,22 @@ func (cc *ClientConfig) GetLogPath() string {
 	}
 	// Replace {name} placeholder with actual client name
 	return strings.ReplaceAll(cc.LogPath, "{name}", strings.ToLower(cc.Name))
+}
+
+// GetType returns the client type, defaulting to "consensus" for backward compatibility
+func (cc *ClientConfig) GetType() string {
+	if cc.Type == "" {
+		return "consensus"
+	}
+	return strings.ToLower(cc.Type)
+}
+
+// IsConsensus returns true if this is a consensus client
+func (cc *ClientConfig) IsConsensus() bool {
+	return cc.GetType() == "consensus"
+}
+
+// IsExecution returns true if this is an execution client
+func (cc *ClientConfig) IsExecution() bool {
+	return cc.GetType() == "execution"
 }

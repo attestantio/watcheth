@@ -11,14 +11,15 @@ import (
 	"github.com/spf13/viper"
 	"github.com/watcheth/watcheth/internal/config"
 	"github.com/watcheth/watcheth/internal/consensus"
+	"github.com/watcheth/watcheth/internal/execution"
 	"github.com/watcheth/watcheth/internal/logger"
 	"github.com/watcheth/watcheth/internal/monitor"
 )
 
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
-	Short: "Start monitoring consensus clients",
-	Long:  `Start the real-time monitoring display for configured consensus clients.`,
+	Short: "Start monitoring clients",
+	Long:  `Start the real-time monitoring display for configured consensus and execution clients.`,
 	Run:   runMonitor,
 }
 
@@ -49,11 +50,17 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	mon := monitor.NewMonitor(cfg.GetRefreshInterval())
+	mon := monitor.NewMonitorV2(cfg.GetRefreshInterval())
 
+	// Add clients based on their type
 	for _, clientCfg := range cfg.Clients {
-		client := consensus.NewConsensusClient(clientCfg.Name, clientCfg.Endpoint)
-		mon.AddClient(client)
+		if clientCfg.IsConsensus() {
+			client := consensus.NewConsensusClient(clientCfg.Name, clientCfg.Endpoint)
+			mon.AddConsensusClient(client)
+		} else if clientCfg.IsExecution() {
+			client := execution.NewClient(clientCfg.Name, clientCfg.Endpoint)
+			mon.AddExecutionClient(client)
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -69,7 +76,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 
 	go mon.Start(ctx)
 
-	display := monitor.NewDisplay(mon)
+	display := monitor.NewDisplayV2(mon)
 	display.SetupLogPaths(cfg.Clients)
 	if err := display.Run(); err != nil {
 		fmt.Printf("Error running display: %v\n", err)

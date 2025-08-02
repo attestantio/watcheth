@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/watcheth/watcheth/internal/config"
 	"github.com/watcheth/watcheth/internal/consensus"
+	"github.com/watcheth/watcheth/internal/execution"
 	"github.com/watcheth/watcheth/internal/logger"
 )
 
@@ -18,8 +19,8 @@ var (
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List consensus client status once (non-interactive)",
-	Long:  `List the current status of all configured consensus clients without the interactive UI.`,
+	Short: "List client status once (non-interactive)",
+	Long:  `List the current status of all configured consensus and execution clients without the interactive UI.`,
 	Run:   runList,
 }
 
@@ -53,51 +54,128 @@ func runList(cmd *cobra.Command, args []string) {
 
 	// Logger is already initialized based on flags
 
-	fmt.Printf("Checking %d consensus clients...\n\n", len(cfg.Clients))
+	// Separate clients by type
+	var consensusClients []config.ClientConfig
+	var executionClients []config.ClientConfig
 
 	for _, clientCfg := range cfg.Clients {
-		fmt.Printf("Checking %s at %s...\n", clientCfg.Name, clientCfg.Endpoint)
-		client := consensus.NewConsensusClient(clientCfg.Name, clientCfg.Endpoint)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		info, err := client.GetNodeInfo(ctx)
-		cancel()
-
-		if err != nil {
-			fmt.Printf("  ❌ Error: %v\n\n", err)
-			continue
+		if clientCfg.IsConsensus() {
+			consensusClients = append(consensusClients, clientCfg)
+		} else if clientCfg.IsExecution() {
+			executionClients = append(executionClients, clientCfg)
 		}
-
-		if !info.IsConnected {
-			fmt.Printf("  ❌ Not connected: %v\n\n", info.LastError)
-			continue
-		}
-
-		status := "Synced"
-		if info.IsSyncing {
-			status = "Syncing"
-		} else if info.IsOptimistic {
-			status = "Optimistic"
-		}
-
-		fmt.Printf("  ✅ Status: %s\n", status)
-		if info.PeerCount > 0 {
-			fmt.Printf("  Peer Count: %d\n", info.PeerCount)
-		}
-		if info.NodeVersion != "" {
-			fmt.Printf("  Node Version: %s\n", info.NodeVersion)
-		}
-		if info.CurrentFork != "" {
-			fmt.Printf("  Current Fork: %s\n", info.CurrentFork)
-		}
-		fmt.Printf("  Current Slot: %d\n", info.CurrentSlot)
-		fmt.Printf("  Head Slot: %d\n", info.HeadSlot)
-		fmt.Printf("  Sync Distance: %d\n", info.SyncDistance)
-		fmt.Printf("  Current Epoch: %d\n", info.CurrentEpoch)
-		fmt.Printf("  Finalized Epoch: %d\n", info.FinalizedEpoch)
-		fmt.Printf("  Next Slot In: %s\n", formatDuration(info.TimeToNextSlot))
-		fmt.Printf("  Next Epoch In: %s\n\n", formatDuration(info.TimeToNextEpoch))
 	}
+
+	// Check consensus clients
+	if len(consensusClients) > 0 {
+		fmt.Printf("=== Consensus Clients (%d) ===\n\n", len(consensusClients))
+		for _, clientCfg := range consensusClients {
+			checkConsensusClient(clientCfg)
+		}
+	}
+
+	// Check execution clients
+	if len(executionClients) > 0 {
+		fmt.Printf("=== Execution Clients (%d) ===\n\n", len(executionClients))
+		for _, clientCfg := range executionClients {
+			checkExecutionClient(clientCfg)
+		}
+	}
+}
+
+func checkConsensusClient(clientCfg config.ClientConfig) {
+	fmt.Printf("Checking %s at %s...\n", clientCfg.Name, clientCfg.Endpoint)
+	client := consensus.NewConsensusClient(clientCfg.Name, clientCfg.Endpoint)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	info, err := client.GetNodeInfo(ctx)
+	cancel()
+
+	if err != nil {
+		fmt.Printf("  ❌ Error: %v\n\n", err)
+		return
+	}
+
+	if !info.IsConnected {
+		fmt.Printf("  ❌ Not connected: %v\n\n", info.LastError)
+		return
+	}
+
+	status := "Synced"
+	if info.IsSyncing {
+		status = "Syncing"
+	} else if info.IsOptimistic {
+		status = "Optimistic"
+	}
+
+	fmt.Printf("  ✅ Status: %s\n", status)
+	if info.PeerCount > 0 {
+		fmt.Printf("  Peer Count: %d\n", info.PeerCount)
+	}
+	if info.NodeVersion != "" {
+		fmt.Printf("  Node Version: %s\n", info.NodeVersion)
+	}
+	if info.CurrentFork != "" {
+		fmt.Printf("  Current Fork: %s\n", info.CurrentFork)
+	}
+	fmt.Printf("  Current Slot: %d\n", info.CurrentSlot)
+	fmt.Printf("  Head Slot: %d\n", info.HeadSlot)
+	fmt.Printf("  Sync Distance: %d\n", info.SyncDistance)
+	fmt.Printf("  Current Epoch: %d\n", info.CurrentEpoch)
+	fmt.Printf("  Finalized Epoch: %d\n", info.FinalizedEpoch)
+	fmt.Printf("  Next Slot In: %s\n", formatDuration(info.TimeToNextSlot))
+	fmt.Printf("  Next Epoch In: %s\n\n", formatDuration(info.TimeToNextEpoch))
+}
+
+func checkExecutionClient(clientCfg config.ClientConfig) {
+	fmt.Printf("Checking %s at %s...\n", clientCfg.Name, clientCfg.Endpoint)
+	client := execution.NewClient(clientCfg.Name, clientCfg.Endpoint)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	info, err := client.GetNodeInfo(ctx)
+	cancel()
+
+	if err != nil {
+		fmt.Printf("  ❌ Error: %v\n\n", err)
+		return
+	}
+
+	if !info.IsConnected {
+		fmt.Printf("  ❌ Not connected: %v\n\n", info.LastError)
+		return
+	}
+
+	status := "Synced"
+	if info.IsSyncing {
+		status = fmt.Sprintf("Syncing (%.1f%%)", info.SyncProgress)
+	}
+
+	fmt.Printf("  ✅ Status: %s\n", status)
+	if info.PeerCount > 0 {
+		fmt.Printf("  Peer Count: %d\n", info.PeerCount)
+	}
+	if info.NodeVersion != "" {
+		fmt.Printf("  Node Version: %s\n", info.NodeVersion)
+	}
+	fmt.Printf("  Current Block: %d\n", info.CurrentBlock)
+	if info.IsSyncing {
+		fmt.Printf("  Highest Block: %d\n", info.HighestBlock)
+		fmt.Printf("  Starting Block: %d\n", info.StartingBlock)
+	}
+	if info.ChainID != nil {
+		fmt.Printf("  Chain ID: %s\n", info.ChainID.String())
+	}
+	if info.NetworkID != "" {
+		fmt.Printf("  Network ID: %s\n", info.NetworkID)
+	}
+	if info.GasPrice != nil {
+		gasPriceGwei := info.GasPrice.Int64() / 1e9
+		fmt.Printf("  Gas Price: %d gwei\n", gasPriceGwei)
+	}
+	if info.BlockTime > 0 {
+		fmt.Printf("  Time Since Last Block: %s\n", formatDuration(info.BlockTime))
+	}
+	fmt.Println()
 }
 
 func formatDuration(duration time.Duration) string {
