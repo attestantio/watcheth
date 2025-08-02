@@ -54,7 +54,7 @@ watcheth list
 
 ### Custom Configuration
 
-Create a `config.yaml` file:
+Create a `watcheth.yaml` file:
 
 ```yaml
 clients:
@@ -77,7 +77,7 @@ refresh_interval: 2s
 Run with custom configuration:
 
 ```bash
-watcheth --config /path/to/config.yaml
+watcheth --config /path/to/watcheth.yaml
 ```
 
 ### Keyboard Shortcuts
@@ -113,7 +113,7 @@ watcheth/
 │   ├── beacon/       # Beacon API client
 │   ├── monitor/      # Monitoring logic
 │   └── config/       # Configuration
-├── config.yaml       # Default configuration
+├── watcheth.yaml     # Default configuration
 └── main.go          # Entry point
 ```
 

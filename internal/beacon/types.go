@@ -34,8 +34,8 @@ type GenesisResponse struct {
 
 type HeadersResponse struct {
 	ExecutionOptimistic bool `json:"execution_optimistic"`
-	Finalized          bool `json:"finalized"`
-	Data               []struct {
+	Finalized           bool `json:"finalized"`
+	Data                []struct {
 		Root      string `json:"root"`
 		Canonical bool   `json:"canonical"`
 		Header    struct {
@@ -53,8 +53,8 @@ type HeadersResponse struct {
 
 type FinalityCheckpointsResponse struct {
 	ExecutionOptimistic bool `json:"execution_optimistic"`
-	Finalized          bool `json:"finalized"`
-	Data               struct {
+	Finalized           bool `json:"finalized"`
+	Data                struct {
 		PreviousJustified struct {
 			Epoch string `json:"epoch"`
 			Root  string `json:"root"`

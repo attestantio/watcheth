@@ -31,7 +31,7 @@ func init() {
 
 func runList(cmd *cobra.Command, args []string) {
 	var cfg config.Config
-	
+
 	if err := viper.Unmarshal(&cfg); err != nil {
 		if err := viper.ReadInConfig(); err == nil {
 			if err := viper.Unmarshal(&cfg); err != nil {
@@ -58,7 +58,7 @@ func runList(cmd *cobra.Command, args []string) {
 	for _, clientCfg := range cfg.Clients {
 		fmt.Printf("Checking %s at %s...\n", clientCfg.Name, clientCfg.Endpoint)
 		client := beacon.NewBeaconClient(clientCfg.Name, clientCfg.Endpoint)
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		info, err := client.GetNodeInfo(ctx)
 		cancel()
@@ -95,12 +95,12 @@ func formatDuration(duration time.Duration) string {
 	if duration < 0 {
 		return "0s"
 	}
-	
+
 	seconds := int(duration.Seconds())
 	if seconds < 60 {
 		return fmt.Sprintf("%ds", seconds)
 	}
-	
+
 	minutes := seconds / 60
 	seconds = seconds % 60
 	return fmt.Sprintf("%dm%ds", minutes, seconds)

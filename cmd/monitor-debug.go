@@ -28,7 +28,7 @@ func init() {
 
 func runMonitorDebug(cmd *cobra.Command, args []string) {
 	var cfg config.Config
-	
+
 	if err := viper.Unmarshal(&cfg); err != nil {
 		if err := viper.ReadInConfig(); err == nil {
 			if err := viper.Unmarshal(&cfg); err != nil {
@@ -77,7 +77,7 @@ func runMonitorDebug(cmd *cobra.Command, args []string) {
 			case infos := <-mon.Updates():
 				fmt.Printf("\n=== Update at %s ===\n", time.Now().Format("15:04:05"))
 				for i, info := range infos {
-					fmt.Printf("Node %d: Name=%s, Connected=%v, Slot=%d\n", 
+					fmt.Printf("Node %d: Name=%s, Connected=%v, Slot=%d\n",
 						i, info.Name, info.IsConnected, info.CurrentSlot)
 				}
 			}

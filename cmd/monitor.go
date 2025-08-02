@@ -27,7 +27,7 @@ func init() {
 
 func runMonitor(cmd *cobra.Command, args []string) {
 	var cfg config.Config
-	
+
 	if err := viper.Unmarshal(&cfg); err != nil {
 		if err := viper.ReadInConfig(); err == nil {
 			if err := viper.Unmarshal(&cfg); err != nil {

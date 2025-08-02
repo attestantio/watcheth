@@ -9,11 +9,11 @@ import (
 )
 
 type Monitor struct {
-	clients        []beacon.Client
+	clients         []beacon.Client
 	refreshInterval time.Duration
-	nodeInfos      []*beacon.BeaconNodeInfo
-	mu             sync.RWMutex
-	updateChan     chan []*beacon.BeaconNodeInfo
+	nodeInfos       []*beacon.BeaconNodeInfo
+	mu              sync.RWMutex
+	updateChan      chan []*beacon.BeaconNodeInfo
 }
 
 func NewMonitor(refreshInterval time.Duration) *Monitor {
@@ -56,10 +56,10 @@ func (m *Monitor) updateAll(ctx context.Context) {
 		wg.Add(1)
 		go func(idx int, c beacon.Client) {
 			defer wg.Done()
-			
+
 			updateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			
+
 			info, err := c.GetNodeInfo(updateCtx)
 			if err != nil {
 				// GetNodeInfo already returns a properly populated info even on error
@@ -85,7 +85,7 @@ func (m *Monitor) updateAll(ctx context.Context) {
 func (m *Monitor) GetNodeInfos() []*beacon.BeaconNodeInfo {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	infos := make([]*beacon.BeaconNodeInfo, len(m.nodeInfos))
 	copy(infos, m.nodeInfos)
 	return infos

@@ -24,8 +24,8 @@ type BeaconClient struct {
 
 func NewBeaconClient(name, endpoint string) *BeaconClient {
 	return &BeaconClient{
-		name:       name,
-		endpoint:   endpoint,
+		name:     name,
+		endpoint: endpoint,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
@@ -55,7 +55,7 @@ func (c *BeaconClient) GetNodeInfo(ctx context.Context) (*BeaconNodeInfo, error)
 
 	info.IsSyncing = syncing.Data.IsSyncing
 	info.IsOptimistic = syncing.Data.IsOptimistic
-	
+
 	headSlot, _ := strconv.ParseUint(syncing.Data.HeadSlot, 10, 64)
 	syncDistance, _ := strconv.ParseUint(syncing.Data.SyncDistance, 10, 64)
 	info.HeadSlot = headSlot
@@ -126,7 +126,7 @@ func (c *BeaconClient) GetChainConfig(ctx context.Context) (*ChainConfig, error)
 	if !ok {
 		return nil, fmt.Errorf("SLOTS_PER_EPOCH is not a string")
 	}
-	
+
 	secondsPerSlot, _ := strconv.ParseUint(secondsPerSlotStr, 10, 64)
 	slotsPerEpoch, _ := strconv.ParseUint(slotsPerEpochStr, 10, 64)
 
@@ -139,7 +139,7 @@ func (c *BeaconClient) GetChainConfig(ctx context.Context) (*ChainConfig, error)
 
 func (c *BeaconClient) get(ctx context.Context, path string, v any) error {
 	url := fmt.Sprintf("%s%s", c.endpoint, path)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

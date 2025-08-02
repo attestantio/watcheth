@@ -42,7 +42,7 @@ func runDebug(cmd *cobra.Command, args []string) {
 
 	for _, path := range endpoints {
 		fmt.Printf("Testing %s...", path)
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		req, err := http.NewRequestWithContext(ctx, "GET", endpoint+path, nil)
 		if err != nil {
@@ -53,7 +53,7 @@ func runDebug(cmd *cobra.Command, args []string) {
 
 		resp, err := client.Do(req)
 		cancel()
-		
+
 		if err != nil {
 			fmt.Printf(" ❌ Error: %v\n", err)
 			continue
@@ -62,7 +62,7 @@ func runDebug(cmd *cobra.Command, args []string) {
 
 		if resp.StatusCode == http.StatusOK {
 			fmt.Printf(" ✅ OK (200)\n")
-			
+
 			// Read and display response body for spec endpoint
 			if path == "/eth/v1/config/spec" {
 				body, err := io.ReadAll(resp.Body)
@@ -70,7 +70,7 @@ func runDebug(cmd *cobra.Command, args []string) {
 					fmt.Printf("   Error reading body: %v\n", err)
 				} else {
 					fmt.Printf("   Response preview (first 500 chars):\n   %s\n", truncateString(string(body), 500))
-					
+
 					// Try to parse as JSON to show structure
 					var rawJSON any
 					if err := json.Unmarshal(body, &rawJSON); err != nil {
