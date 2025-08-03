@@ -46,7 +46,6 @@ type Display struct {
 	showLogs          bool
 	selectedLogClient int
 	clientNames       []string
-	focusedTable      int             // 0 = consensus, 1 = execution
 	nextSlotTime      time.Duration   // Time to next slot
 	consensusHeader   *tview.TextView // Header for consensus section
 }
@@ -67,7 +66,6 @@ func NewDisplay(monitor *Monitor) *Display {
 		showLogs:          false,
 		selectedLogClient: 0,
 		clientNames:       []string{},
-		focusedTable:      0,
 		consensusHeader:   tview.NewTextView(),
 	}
 }
@@ -186,14 +184,14 @@ func (d *Display) updateLayout() {
 	consensusSection := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(d.consensusHeader, 1, 0, false).
-		AddItem(d.consensusTable, 0, 1, d.focusedTable == 0)
+		AddItem(d.consensusTable, 0, 1, true)
 
 	// Execution clients section
 	executionSection := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(nil, 1, 0, false). // Spacer
 		AddItem(tview.NewTextView().SetText("[Execution Clients]").SetTextColor(tcell.ColorGreen), 1, 0, false).
-		AddItem(d.executionTable, 0, 1, d.focusedTable == 1)
+		AddItem(d.executionTable, 0, 1, false)
 
 	tablesArea := tview.NewFlex().
 		SetDirection(tview.FlexRow).
@@ -263,13 +261,6 @@ func (d *Display) updateLayout() {
 				d.selectedLogClient = len(d.clientNames) - 1
 				d.updateLogView()
 			}
-			return nil
-		}
-
-		// Tab key to switch between tables
-		if event.Key() == tcell.KeyTab {
-			d.focusedTable = (d.focusedTable + 1) % 2
-			d.updateLayout()
 			return nil
 		}
 
@@ -636,13 +627,8 @@ func (d *Display) updateHelpText() {
 		logHelp = " | L:Show Logs"
 	}
 
-	focusedTableName := "Consensus"
-	if d.focusedTable == 1 {
-		focusedTableName = "Execution"
-	}
-
-	helpText := fmt.Sprintf("q:Quit | r:Refresh | Tab:Switch Table [%s]%s | Next: %ds",
-		focusedTableName, logHelp, int(timeLeft.Seconds()))
+	helpText := fmt.Sprintf("q:Quit | r:Refresh%s | Next: %ds",
+		logHelp, int(timeLeft.Seconds()))
 	d.help.SetText(helpText)
 }
 
