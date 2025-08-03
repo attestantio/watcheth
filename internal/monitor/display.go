@@ -23,10 +23,10 @@ const (
 
 // Animation frames for the title
 var titleAnimationFrames = []string{
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└eth node monitor┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└eth node monitor┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( -.- )     │\n│     > ^ <      │\n└eth node monitor┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└eth node monitor┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└────────────────┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└────────────────┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( -.- )     │\n│     > ^ <      │\n└────────────────┘",
+	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└────────────────┘",
 }
 
 type Display struct {
@@ -46,7 +46,9 @@ type Display struct {
 	showLogs          bool
 	selectedLogClient int
 	clientNames       []string
-	focusedTable      int // 0 = consensus, 1 = execution
+	focusedTable      int             // 0 = consensus, 1 = execution
+	nextSlotTime      time.Duration   // Time to next slot
+	consensusHeader   *tview.TextView // Header for consensus section
 }
 
 func NewDisplay(monitor *Monitor) *Display {
@@ -66,6 +68,7 @@ func NewDisplay(monitor *Monitor) *Display {
 		selectedLogClient: 0,
 		clientNames:       []string{},
 		focusedTable:      0,
+		consensusHeader:   tview.NewTextView(),
 	}
 }
 
@@ -135,8 +138,8 @@ func (d *Display) getConsensusHeaders() []string {
 		"Status",
 		"Slot",
 		"Peers",
-		"Next In",
 		"Epoch/Final",
+		"Version",
 	}
 }
 
@@ -148,14 +151,13 @@ func (d *Display) getExecutionHeaders() []string {
 		"Peers",
 		"Gas Price",
 		"Chain ID",
+		"Version",
 	}
 }
 
 func (d *Display) setupLayout() {
-	// Initialize title with updated text
-	titleFrame := titleAnimationFrames[0]
-	titleFrame = strings.Replace(titleFrame, "consensus monitor", "eth node monitor", 1)
-	d.title.SetText(titleFrame).
+	// Initialize title
+	d.title.SetText(titleAnimationFrames[0]).
 		SetTextAlign(tview.AlignLeft).
 		SetTextColor(tcell.ColorGreen)
 
@@ -177,10 +179,13 @@ func (d *Display) updateLayout() {
 		AddItem(d.title, 5, 0, false). // Cat face animation
 		AddItem(nil, 1, 0, false)      // Empty space
 
-	// Consensus clients section
+	// Consensus clients section with slot countdown
+	d.updateConsensusHeader()
+	d.consensusHeader.SetTextColor(tcell.ColorGreen)
+
 	consensusSection := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(tview.NewTextView().SetText("[Consensus Clients]").SetTextColor(tcell.ColorGreen), 1, 0, false).
+		AddItem(d.consensusHeader, 1, 0, false).
 		AddItem(d.consensusTable, 0, 1, d.focusedTable == 0)
 
 	// Execution clients section
@@ -310,6 +315,14 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 		infos = []*consensus.ConsensusNodeInfo{}
 	}
 
+	// Update next slot time from any connected consensus node
+	for _, info := range infos {
+		if info != nil && info.IsConnected && info.TimeToNextSlot > 0 {
+			d.nextSlotTime = info.TimeToNextSlot
+			break // All nodes should have the same time to next slot
+		}
+	}
+
 	// Ensure we have enough rows in the table
 	currentRows := d.consensusTable.GetRowCount()
 	neededRows := len(infos) + 1 // +1 for header
@@ -369,16 +382,6 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 		d.setConsensusCell(tableRow, col, peerText, peerColor)
 		col++
 
-		// Next slot time
-		var nextText string
-		if info.IsConnected && info.TimeToNextSlot > 0 {
-			nextText = d.formatDuration(info.TimeToNextSlot)
-		} else {
-			nextText = "-"
-		}
-		d.setConsensusCell(tableRow, col, nextText, tcell.ColorWhite)
-		col++
-
 		// Epoch with arrow notation when behind
 		if info.IsConnected {
 			if info.FinalizedEpoch == info.CurrentEpoch {
@@ -392,6 +395,22 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 		} else {
 			d.setConsensusCell(tableRow, col, "-", tcell.ColorGray)
 		}
+		col++
+
+		// Node version (last column)
+		var versionText string
+		if info.IsConnected && info.NodeVersion != "" {
+			// Extract just the client/version part (e.g., "Prysm/v4.0.8" from full version string)
+			parts := strings.Split(info.NodeVersion, " ")
+			if len(parts) > 0 {
+				versionText = parts[0]
+			} else {
+				versionText = info.NodeVersion
+			}
+		} else {
+			versionText = "-"
+		}
+		d.setConsensusCell(tableRow, col, versionText, tcell.ColorWhite)
 	}
 }
 
@@ -481,6 +500,22 @@ func (d *Display) updateExecutionTable(infos []*execution.ExecutionNodeInfo) {
 		} else {
 			d.setExecutionCell(tableRow, col, "-", tcell.ColorGray)
 		}
+		col++
+
+		// Node version (last column)
+		var versionText string
+		if info.IsConnected && info.NodeVersion != "" {
+			// Extract just the client/version part
+			parts := strings.Split(info.NodeVersion, "/")
+			if len(parts) > 0 {
+				versionText = parts[0]
+			} else {
+				versionText = info.NodeVersion
+			}
+		} else {
+			versionText = "-"
+		}
+		d.setExecutionCell(tableRow, col, versionText, tcell.ColorWhite)
 	}
 }
 
@@ -581,6 +616,14 @@ func (d *Display) formatDuration(duration time.Duration) string {
 	return fmt.Sprintf("%dm%ds", minutes, seconds)
 }
 
+func (d *Display) updateConsensusHeader() {
+	headerText := "[Consensus Clients]"
+	if d.nextSlotTime > 0 {
+		headerText = fmt.Sprintf("[Consensus Clients] Next slot in: %s", d.formatDuration(d.nextSlotTime))
+	}
+	d.consensusHeader.SetText(headerText)
+}
+
 func (d *Display) updateHelpText() {
 	// Calculate time until next refresh
 	timeLeft := time.Until(d.nextRefresh)
@@ -634,6 +677,15 @@ func (d *Display) countdownLoop() {
 		select {
 		case <-d.countdownTicker.C:
 			d.app.QueueUpdateDraw(func() {
+				// Decrement next slot time
+				if d.nextSlotTime > 0 {
+					d.nextSlotTime -= time.Second
+					if d.nextSlotTime < 0 {
+						d.nextSlotTime = 0
+					}
+				}
+
+				d.updateConsensusHeader()
 				d.updateHelpText()
 			})
 		}
@@ -652,9 +704,7 @@ func (d *Display) animationLoop() {
 		case <-d.animationTicker.C:
 			d.app.QueueUpdateDraw(func() {
 				d.animationFrame = (d.animationFrame + 1) % len(titleAnimationFrames)
-				titleFrame := titleAnimationFrames[d.animationFrame]
-				titleFrame = strings.Replace(titleFrame, "consensus monitor", "eth node monitor", 1)
-				d.title.SetText(titleFrame)
+				d.title.SetText(titleAnimationFrames[d.animationFrame])
 			})
 		}
 	}
