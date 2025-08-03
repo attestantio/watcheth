@@ -505,13 +505,7 @@ func (d *Display) updateExecutionTable(infos []*execution.ExecutionNodeInfo) {
 		// Node version (last column)
 		var versionText string
 		if info.IsConnected && info.NodeVersion != "" {
-			// Extract just the client/version part
-			parts := strings.Split(info.NodeVersion, "/")
-			if len(parts) > 0 {
-				versionText = parts[0]
-			} else {
-				versionText = info.NodeVersion
-			}
+			versionText = info.NodeVersion
 		} else {
 			versionText = "-"
 		}
