@@ -17,6 +17,7 @@ type ConsensusNodeInfo struct {
 	SyncDistance    uint64
 	IsSyncing       bool
 	IsOptimistic    bool
+	ElOffline       bool
 	TimeToNextSlot  time.Duration
 	TimeToNextEpoch time.Duration
 	IsConnected     bool

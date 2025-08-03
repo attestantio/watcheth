@@ -58,6 +58,7 @@ func (c *ConsensusClient) GetNodeInfo(ctx context.Context) (*ConsensusNodeInfo, 
 
 	info.IsSyncing = syncing.Data.IsSyncing
 	info.IsOptimistic = syncing.Data.IsOptimistic
+	info.ElOffline = syncing.Data.ElOffline
 
 	headSlot, _ := strconv.ParseUint(syncing.Data.HeadSlot, 10, 64)
 	syncDistance, _ := strconv.ParseUint(syncing.Data.SyncDistance, 10, 64)

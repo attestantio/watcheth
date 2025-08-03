@@ -101,14 +101,7 @@ func checkConsensusClient(clientCfg config.ClientConfig) {
 		return
 	}
 
-	status := "Synced"
-	if info.IsSyncing {
-		status = "Syncing"
-	} else if info.IsOptimistic {
-		status = "Optimistic"
-	}
-
-	fmt.Printf("  ✅ Status: %s\n", status)
+	fmt.Printf("  ✅ Connected\n")
 	if info.PeerCount > 0 {
 		fmt.Printf("  Peer Count: %d\n", info.PeerCount)
 	}
@@ -118,6 +111,9 @@ func checkConsensusClient(clientCfg config.ClientConfig) {
 	if info.CurrentFork != "" {
 		fmt.Printf("  Current Fork: %s\n", info.CurrentFork)
 	}
+	fmt.Printf("  Is Syncing: %v\n", info.IsSyncing)
+	fmt.Printf("  Is Optimistic: %v\n", info.IsOptimistic)
+	fmt.Printf("  EL Offline: %v\n", info.ElOffline)
 	fmt.Printf("  Current Slot: %d\n", info.CurrentSlot)
 	fmt.Printf("  Head Slot: %d\n", info.HeadSlot)
 	fmt.Printf("  Sync Distance: %d\n", info.SyncDistance)

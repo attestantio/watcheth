@@ -134,10 +134,14 @@ func (d *Display) getConsensusHeaders() []string {
 	return []string{
 		"Client",
 		"Status",
+		"Syncing",
+		"Optimistic",
+		"EL Offline",
 		"Slot",
 		"Peers",
 		"Epoch/Final",
 		"Version",
+		"Fork",
 	}
 }
 
@@ -345,6 +349,60 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 		d.setConsensusCell(tableRow, col, statusText, statusColor)
 		col++
 
+		// Syncing status
+		var syncingText string
+		var syncingColor tcell.Color
+		if info.IsConnected {
+			if info.IsSyncing {
+				syncingText = "Yes"
+				syncingColor = tcell.ColorYellow
+			} else {
+				syncingText = "No"
+				syncingColor = tcell.ColorGreen
+			}
+		} else {
+			syncingText = "-"
+			syncingColor = tcell.ColorGray
+		}
+		d.setConsensusCell(tableRow, col, syncingText, syncingColor)
+		col++
+
+		// Optimistic status
+		var optimisticText string
+		var optimisticColor tcell.Color
+		if info.IsConnected {
+			if info.IsOptimistic {
+				optimisticText = "Yes"
+				optimisticColor = tcell.ColorYellow
+			} else {
+				optimisticText = "No"
+				optimisticColor = tcell.ColorGreen
+			}
+		} else {
+			optimisticText = "-"
+			optimisticColor = tcell.ColorGray
+		}
+		d.setConsensusCell(tableRow, col, optimisticText, optimisticColor)
+		col++
+
+		// EL Offline status
+		var elOfflineText string
+		var elOfflineColor tcell.Color
+		if info.IsConnected {
+			if info.ElOffline {
+				elOfflineText = "Yes"
+				elOfflineColor = tcell.ColorRed
+			} else {
+				elOfflineText = "No"
+				elOfflineColor = tcell.ColorGreen
+			}
+		} else {
+			elOfflineText = "-"
+			elOfflineColor = tcell.ColorGray
+		}
+		d.setConsensusCell(tableRow, col, elOfflineText, elOfflineColor)
+		col++
+
 		// Slot with arrow notation when syncing
 		if info.IsConnected {
 			slotText := fmt.Sprintf("%d", info.CurrentSlot)
@@ -388,7 +446,7 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 		}
 		col++
 
-		// Node version (last column)
+		// Node version
 		var versionText string
 		if info.IsConnected && info.NodeVersion != "" {
 			// Extract just the client/version part (e.g., "Prysm/v4.0.8" from full version string)
@@ -402,6 +460,16 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 			versionText = "-"
 		}
 		d.setConsensusCell(tableRow, col, versionText, tcell.ColorWhite)
+		col++
+
+		// Fork version (last column)
+		var forkText string
+		if info.IsConnected && info.CurrentFork != "" {
+			forkText = info.CurrentFork
+		} else {
+			forkText = "-"
+		}
+		d.setConsensusCell(tableRow, col, forkText, tcell.ColorWhite)
 	}
 }
 
