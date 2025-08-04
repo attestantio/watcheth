@@ -48,6 +48,7 @@ type Display struct {
 	clientNames       []string
 	nextSlotTime      time.Duration   // Time to next slot
 	consensusHeader   *tview.TextView // Header for consensus section
+	showVersions      bool            // Toggle for showing version columns
 }
 
 func NewDisplay(monitor *Monitor) *Display {
@@ -67,6 +68,7 @@ func NewDisplay(monitor *Monitor) *Display {
 		selectedLogClient: 0,
 		clientNames:       []string{},
 		consensusHeader:   tview.NewTextView(),
+		showVersions:      false, // Hidden by default
 	}
 }
 
@@ -131,7 +133,7 @@ func (d *Display) setupTables() {
 }
 
 func (d *Display) getConsensusHeaders() []string {
-	return []string{
+	headers := []string{
 		"Client",
 		"Status",
 		"Syncing",
@@ -140,21 +142,27 @@ func (d *Display) getConsensusHeaders() []string {
 		"Slot",
 		"Peers",
 		"Epoch/Final",
-		"Version",
-		"Fork",
 	}
+	if d.showVersions {
+		headers = append(headers, "Version")
+	}
+	headers = append(headers, "Fork")
+	return headers
 }
 
 func (d *Display) getExecutionHeaders() []string {
-	return []string{
+	headers := []string{
 		"Client",
 		"Status",
 		"Block",
 		"Peers",
 		"Gas Price",
 		"Chain ID",
-		"Version",
 	}
+	if d.showVersions {
+		headers = append(headers, "Version")
+	}
+	return headers
 }
 
 func (d *Display) setupLayout() {
@@ -265,6 +273,13 @@ func (d *Display) updateLayout() {
 				d.selectedLogClient = len(d.clientNames) - 1
 				d.updateLogView()
 			}
+			return nil
+		case 'v', 'V':
+			// Toggle version columns
+			d.showVersions = !d.showVersions
+			d.setupTables()
+			go d.updateTables(d.monitor.GetNodeInfos())
+			d.updateHelpText()
 			return nil
 		}
 
@@ -446,21 +461,23 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 		}
 		col++
 
-		// Node version
-		var versionText string
-		if info.IsConnected && info.NodeVersion != "" {
-			// Extract just the client/version part (e.g., "Prysm/v4.0.8" from full version string)
-			parts := strings.Split(info.NodeVersion, " ")
-			if len(parts) > 0 {
-				versionText = parts[0]
+		// Node version (if enabled)
+		if d.showVersions {
+			var versionText string
+			if info.IsConnected && info.NodeVersion != "" {
+				// Extract just the client/version part (e.g., "Prysm/v4.0.8" from full version string)
+				parts := strings.Split(info.NodeVersion, " ")
+				if len(parts) > 0 {
+					versionText = parts[0]
+				} else {
+					versionText = info.NodeVersion
+				}
 			} else {
-				versionText = info.NodeVersion
+				versionText = "-"
 			}
-		} else {
-			versionText = "-"
+			d.setConsensusCell(tableRow, col, versionText, tcell.ColorWhite)
+			col++
 		}
-		d.setConsensusCell(tableRow, col, versionText, tcell.ColorWhite)
-		col++
 
 		// Fork version (last column)
 		var forkText string
@@ -561,14 +578,16 @@ func (d *Display) updateExecutionTable(infos []*execution.ExecutionNodeInfo) {
 		}
 		col++
 
-		// Node version (last column)
-		var versionText string
-		if info.IsConnected && info.NodeVersion != "" {
-			versionText = info.NodeVersion
-		} else {
-			versionText = "-"
+		// Node version (if enabled)
+		if d.showVersions {
+			var versionText string
+			if info.IsConnected && info.NodeVersion != "" {
+				versionText = info.NodeVersion
+			} else {
+				versionText = "-"
+			}
+			d.setExecutionCell(tableRow, col, versionText, tcell.ColorWhite)
 		}
-		d.setExecutionCell(tableRow, col, versionText, tcell.ColorWhite)
 	}
 }
 
@@ -695,8 +714,13 @@ func (d *Display) updateHelpText() {
 		logHelp = " | L:Show Logs"
 	}
 
-	helpText := fmt.Sprintf("q:Quit | r:Refresh%s | Next: %ds",
-		logHelp, int(timeLeft.Seconds()))
+	versionsHelp := " | v:Show Versions"
+	if d.showVersions {
+		versionsHelp = " | v:Hide Versions"
+	}
+
+	helpText := fmt.Sprintf("q:Quit | r:Refresh%s%s | Next: %ds",
+		versionsHelp, logHelp, int(timeLeft.Seconds()))
 	d.help.SetText(helpText)
 }
 
