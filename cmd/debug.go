@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -15,6 +16,7 @@ import (
 
 var (
 	clientType string
+	outputFile string
 )
 
 var debugCmd = &cobra.Command{
@@ -28,6 +30,7 @@ var debugCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(debugCmd)
 	debugCmd.Flags().StringVarP(&clientType, "type", "t", "consensus", "Client type (consensus or execution)")
+	debugCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file path to save debug results")
 }
 
 func runDebug(cmd *cobra.Command, args []string) {
@@ -36,15 +39,28 @@ func runDebug(cmd *cobra.Command, args []string) {
 
 	endpoint := args[0]
 
+	// Create output writer
+	var output io.Writer = os.Stdout
+	if outputFile != "" {
+		file, err := os.Create(outputFile)
+		if err != nil {
+			fmt.Printf("Error creating output file: %v\n", err)
+			os.Exit(1)
+		}
+		defer file.Close()
+		// Write to both stdout and file
+		output = io.MultiWriter(os.Stdout, file)
+	}
+
 	if clientType == "execution" {
-		debugExecutionClient(endpoint)
+		debugExecutionClient(endpoint, output)
 	} else {
-		debugConsensusClient(endpoint)
+		debugConsensusClient(endpoint, output)
 	}
 }
 
-func debugConsensusClient(endpoint string) {
-	fmt.Printf("Testing consensus client at: %s\n\n", endpoint)
+func debugConsensusClient(endpoint string, w io.Writer) {
+	fmt.Fprintf(w, "Testing consensus client at: %s\n\n", endpoint)
 
 	endpoints := []string{
 		"/eth/v1/beacon/genesis",
@@ -60,53 +76,51 @@ func debugConsensusClient(endpoint string) {
 	}
 
 	for _, path := range endpoints {
-		fmt.Printf("Testing %s...", path)
+		fmt.Fprintf(w, "Testing %s...", path)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, "GET", endpoint+path, nil)
 		if err != nil {
-			fmt.Printf(" ❌ Error creating request: %v\n", err)
+			fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
 			continue
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Printf(" ❌ Error: %v\n", err)
+			fmt.Fprintf(w, " ❌ Error: %v\n", err)
 			continue
 		}
 		defer resp.Body.Close()
 
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
+			continue
+		}
+
 		if resp.StatusCode == http.StatusOK {
-			fmt.Printf(" ✅ OK (200)\n")
+			fmt.Fprintf(w, " ✅ OK (200)\n")
 
-			// Read and display response body for spec endpoint
-			if path == "/eth/v1/config/spec" {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					fmt.Printf("   Error reading body: %v\n", err)
-				} else {
-					fmt.Printf("   Response preview (first 500 chars):\n   %s\n", truncateString(string(body), 500))
-
-					// Try to parse as JSON to show structure
-					var rawJSON any
-					if err := json.Unmarshal(body, &rawJSON); err != nil {
-						fmt.Printf("   Failed to parse JSON: %v\n", err)
-					} else {
-						formatted, _ := json.MarshalIndent(rawJSON, "   ", "  ")
-						fmt.Printf("   JSON structure:\n   %s\n", truncateString(string(formatted), 1000))
-					}
-				}
+			// Try to parse as JSON to show formatted response
+			var rawJSON any
+			if err := json.Unmarshal(body, &rawJSON); err != nil {
+				fmt.Fprintf(w, "   Failed to parse JSON: %v\n", err)
+				fmt.Fprintf(w, "   Raw response: %s\n", string(body))
+			} else {
+				formatted, _ := json.MarshalIndent(rawJSON, "   ", "  ")
+				fmt.Fprintf(w, "   Response:\n%s\n", string(formatted))
 			}
 		} else {
-			fmt.Printf(" ❌ Status: %d\n", resp.StatusCode)
+			fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
+			fmt.Fprintf(w, "   Response: %s\n", string(body))
 		}
 	}
 }
 
-func debugExecutionClient(endpoint string) {
-	fmt.Printf("Testing execution client at: %s\n\n", endpoint)
+func debugExecutionClient(endpoint string, w io.Writer) {
+	fmt.Fprintf(w, "Testing execution client at: %s\n\n", endpoint)
 
 	// Test JSON-RPC methods
 	methods := []string{
@@ -125,7 +139,7 @@ func debugExecutionClient(endpoint string) {
 	}
 
 	for _, method := range methods {
-		fmt.Printf("Testing %s...", method)
+		fmt.Fprintf(w, "Testing %s...", method)
 
 		// Create JSON-RPC request
 		jsonReq := map[string]interface{}{
@@ -137,7 +151,7 @@ func debugExecutionClient(endpoint string) {
 
 		jsonData, err := json.Marshal(jsonReq)
 		if err != nil {
-			fmt.Printf(" ❌ Error marshaling request: %v\n", err)
+			fmt.Fprintf(w, " ❌ Error marshaling request: %v\n", err)
 			continue
 		}
 
@@ -146,47 +160,40 @@ func debugExecutionClient(endpoint string) {
 
 		req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(jsonData))
 		if err != nil {
-			fmt.Printf(" ❌ Error creating request: %v\n", err)
+			fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Printf(" ❌ Error: %v\n", err)
+			fmt.Fprintf(w, " ❌ Error: %v\n", err)
 			continue
 		}
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Printf(" ❌ Error reading body: %v\n", err)
+			fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
 			continue
 		}
 
 		if resp.StatusCode == http.StatusOK {
-			fmt.Printf(" ✅ OK (200)\n")
+			fmt.Fprintf(w, " ✅ OK (200)\n")
 
 			var result map[string]interface{}
 			if err := json.Unmarshal(body, &result); err != nil {
-				fmt.Printf("   Failed to parse JSON: %v\n", err)
+				fmt.Fprintf(w, "   Failed to parse JSON: %v\n", err)
 			} else {
 				if res, ok := result["result"]; ok {
-					fmt.Printf("   Result: %v\n", res)
+					fmt.Fprintf(w, "   Result: %v\n", res)
 				} else if errMsg, ok := result["error"]; ok {
-					fmt.Printf("   Error: %v\n", errMsg)
+					fmt.Fprintf(w, "   Error: %v\n", errMsg)
 				}
 			}
 		} else {
-			fmt.Printf(" ❌ Status: %d\n", resp.StatusCode)
-			fmt.Printf("   Response: %s\n", string(body))
+			fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
+			fmt.Fprintf(w, "   Response: %s\n", string(body))
 		}
 	}
-}
-
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "... (truncated)"
 }

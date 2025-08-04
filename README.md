@@ -52,6 +52,23 @@ List nodes once (non-interactive):
 watcheth list
 ```
 
+### Debug Mode
+
+Test API endpoints on a consensus or execution client:
+
+```bash
+# Debug consensus client
+watcheth debug http://localhost:5052
+
+# Debug execution client  
+watcheth debug http://localhost:8545 --type execution
+
+# Save debug output to file
+watcheth debug http://localhost:5052 --output debug-results.txt
+```
+
+The debug command tests various API endpoints and shows their availability and response. Use `--output` or `-o` to save the results to a file while still displaying them on the terminal.
+
 ### Custom Configuration
 
 Create a `watcheth.yaml` file:
