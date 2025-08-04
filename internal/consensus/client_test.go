@@ -322,7 +322,7 @@ func TestConsensusClient_GetNodeInfo(t *testing.T) {
 				Status int
 				Body   string
 			}) {
-			// Use default endpoints
+				// Use default endpoints
 			},
 			validate: func(t *testing.T, info *ConsensusNodeInfo) {
 				assert.True(t, info.IsConnected)
@@ -341,13 +341,15 @@ func TestConsensusClient_GetNodeInfo(t *testing.T) {
 			modifyEndpoints: func(endpoints map[string]struct {
 				Status int
 				Body   string
-			}) { endpoints["/eth/v1/beacon/genesis"] = struct {
-				Status int
-				Body   string
-			}{
-				Status: http.StatusInternalServerError,
-				Body:   "Error",
-			} },
+			}) {
+				endpoints["/eth/v1/beacon/genesis"] = struct {
+					Status int
+					Body   string
+				}{
+					Status: http.StatusInternalServerError,
+					Body:   "Error",
+				}
+			},
 			validate: func(t *testing.T, info *ConsensusNodeInfo) {
 				assert.False(t, info.IsConnected)
 				assert.NotNil(t, info.LastError)
@@ -358,13 +360,15 @@ func TestConsensusClient_GetNodeInfo(t *testing.T) {
 			modifyEndpoints: func(endpoints map[string]struct {
 				Status int
 				Body   string
-			}) { endpoints["/eth/v1/node/syncing"] = struct {
-				Status int
-				Body   string
-			}{
-				Status: http.StatusInternalServerError,
-				Body:   "Error",
-			} },
+			}) {
+				endpoints["/eth/v1/node/syncing"] = struct {
+					Status int
+					Body   string
+				}{
+					Status: http.StatusInternalServerError,
+					Body:   "Error",
+				}
+			},
 			validate: func(t *testing.T, info *ConsensusNodeInfo) {
 				assert.False(t, info.IsConnected)
 				assert.NotNil(t, info.LastError)
@@ -375,7 +379,12 @@ func TestConsensusClient_GetNodeInfo(t *testing.T) {
 			modifyEndpoints: func(endpoints map[string]struct {
 				Status int
 				Body   string
-			}) { delete(endpoints, "/eth/v1/beacon/headers"); delete(endpoints, "/eth/v1/node/peer_count"); delete(endpoints, "/eth/v1/node/version"); delete(endpoints, "/eth/v1/beacon/states/head/fork") },
+			}) {
+				delete(endpoints, "/eth/v1/beacon/headers")
+				delete(endpoints, "/eth/v1/node/peer_count")
+				delete(endpoints, "/eth/v1/node/version")
+				delete(endpoints, "/eth/v1/beacon/states/head/fork")
+			},
 			validate: func(t *testing.T, info *ConsensusNodeInfo) {
 				assert.True(t, info.IsConnected)
 				assert.Equal(t, uint64(100), info.HeadSlot) // From syncing response
@@ -389,13 +398,15 @@ func TestConsensusClient_GetNodeInfo(t *testing.T) {
 			modifyEndpoints: func(endpoints map[string]struct {
 				Status int
 				Body   string
-			}) { endpoints["/eth/v1/node/syncing"] = struct {
-				Status int
-				Body   string
-			}{
-				Status: http.StatusOK,
-				Body:   testutil.NotSyncingResponse,
-			} },
+			}) {
+				endpoints["/eth/v1/node/syncing"] = struct {
+					Status int
+					Body   string
+				}{
+					Status: http.StatusOK,
+					Body:   testutil.NotSyncingResponse,
+				}
+			},
 			validate: func(t *testing.T, info *ConsensusNodeInfo) {
 				assert.True(t, info.IsConnected)
 				assert.False(t, info.IsSyncing)
