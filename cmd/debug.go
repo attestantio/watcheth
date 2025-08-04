@@ -63,16 +63,15 @@ func debugConsensusClient(endpoint string) {
 		fmt.Printf("Testing %s...", path)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
 		req, err := http.NewRequestWithContext(ctx, "GET", endpoint+path, nil)
 		if err != nil {
 			fmt.Printf(" ❌ Error creating request: %v\n", err)
-			cancel()
 			continue
 		}
 
 		resp, err := client.Do(req)
-		cancel()
-
 		if err != nil {
 			fmt.Printf(" ❌ Error: %v\n", err)
 			continue
@@ -143,17 +142,16 @@ func debugExecutionClient(endpoint string) {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
 		req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(jsonData))
 		if err != nil {
 			fmt.Printf(" ❌ Error creating request: %v\n", err)
-			cancel()
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := client.Do(req)
-		cancel()
-
 		if err != nil {
 			fmt.Printf(" ❌ Error: %v\n", err)
 			continue
