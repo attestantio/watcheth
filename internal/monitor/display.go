@@ -3,6 +3,7 @@ package monitor
 import (
 	"fmt"
 	"math/big"
+	"net/url"
 	"strings"
 	"time"
 
@@ -135,6 +136,7 @@ func (d *Display) setupTables() {
 func (d *Display) getConsensusHeaders() []string {
 	headers := []string{
 		"Client",
+		"Port",
 		"Status",
 		"Syncing",
 		"Optimistic",
@@ -153,6 +155,7 @@ func (d *Display) getConsensusHeaders() []string {
 func (d *Display) getExecutionHeaders() []string {
 	headers := []string{
 		"Client",
+		"Port",
 		"Status",
 		"Block",
 		"Peers",
@@ -358,6 +361,11 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 		d.setConsensusCell(tableRow, col, info.Name, tcell.ColorWhite)
 		col++
 
+		// Port
+		port := parsePortFromEndpoint(info.Endpoint)
+		d.setConsensusCell(tableRow, col, port, tcell.ColorWhite)
+		col++
+
 		// Status with symbol
 		status, statusColor, statusSymbol := d.getStatusInfo(info)
 		statusText := fmt.Sprintf("%s %s", statusSymbol, status)
@@ -518,6 +526,11 @@ func (d *Display) updateExecutionTable(infos []*execution.ExecutionNodeInfo) {
 
 		// Client name
 		d.setExecutionCell(tableRow, col, info.Name, tcell.ColorWhite)
+		col++
+
+		// Port
+		port := parsePortFromEndpoint(info.Endpoint)
+		d.setExecutionCell(tableRow, col, port, tcell.ColorWhite)
 		col++
 
 		// Status with symbol
@@ -780,4 +793,24 @@ func (d *Display) animationLoop() {
 			})
 		}
 	}
+}
+
+func parsePortFromEndpoint(endpoint string) string {
+	if endpoint == "" {
+		return "-"
+	}
+
+	// Try to parse as URL
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return endpoint
+	}
+
+	// If port is explicitly specified, return just the port
+	if u.Port() != "" {
+		return u.Port()
+	}
+
+	// If no explicit port, return the full URL
+	return endpoint
 }
