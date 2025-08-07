@@ -209,30 +209,48 @@ func (d *Display) updateLayout() {
 		d.validatorSummary.SetBorder(false)
 		d.validatorSummary.SetDynamicColors(true)
 		d.validatorSummary.SetWrap(false)
-		flex.AddItem(d.validatorSummary, 0, 1, false) // Dynamic height based on content
-		flex.AddItem(nil, 1, 0, false)                // Space after summary
+		// Count lines in validator summary:
+		// 1 header + 1 status + 1 blank + 6 metrics + 2 blanks + 1 states header + 5 state lines + 1 total = 19 lines
+		validatorLines := 19                                       // Fixed height for validator summary
+		flex.AddItem(d.validatorSummary, validatorLines, 0, false) // Fixed height
+
+		// Add empty space after validator summary
+		flex.AddItem(nil, 1, 0, false)
 	}
 
 	// Consensus clients section with slot countdown
 	d.updateConsensusHeader()
 	d.consensusHeader.SetTextColor(tcell.ColorGreen)
 
+	// Calculate table heights based on actual row counts
+	consensusRowCount := d.consensusTable.GetRowCount()
+	if consensusRowCount == 0 {
+		consensusRowCount = 1 // At least show header
+	}
+	consensusHeight := consensusRowCount + 1 // +1 for section header
+
+	executionRowCount := d.executionTable.GetRowCount()
+	if executionRowCount == 0 {
+		executionRowCount = 1 // At least show header
+	}
+	executionHeight := executionRowCount + 2 // +2 for empty space and section header
+
 	consensusSection := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(d.consensusHeader, 1, 0, false).
-		AddItem(d.consensusTable, 0, 1, true)
+		AddItem(d.consensusTable, consensusRowCount, 0, true)
 
 	// Execution clients section
 	executionSection := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(nil, 1, 0, false). // Spacer
-		AddItem(tview.NewTextView().SetText("  Execution Clients").SetTextColor(tcell.ColorGreen), 1, 0, false).
-		AddItem(d.executionTable, 0, 1, false)
+		AddItem(nil, 1, 0, false). // Empty space for separation
+		AddItem(tview.NewTextView().SetText("  ● Execution Clients").SetTextColor(tcell.ColorGreen), 1, 0, false).
+		AddItem(d.executionTable, executionRowCount, 0, false)
 
 	tablesArea := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(consensusSection, 0, 1, true).
-		AddItem(executionSection, 0, 1, false)
+		AddItem(consensusSection, consensusHeight, 0, true).
+		AddItem(executionSection, executionHeight, 0, false)
 
 	if d.showLogs {
 		// Split view: tables and logs
@@ -703,9 +721,9 @@ func (d *Display) formatDuration(duration time.Duration) string {
 }
 
 func (d *Display) updateConsensusHeader() {
-	headerText := "  Consensus Clients"
+	headerText := "  ● Consensus Clients"
 	if d.nextSlotTime > 0 {
-		headerText = fmt.Sprintf("  Consensus Clients - Next slot in: %s", d.formatDuration(d.nextSlotTime))
+		headerText = fmt.Sprintf("  ● Consensus Clients - Next slot in: %s", d.formatDuration(d.nextSlotTime))
 	}
 	d.consensusHeader.SetText(headerText)
 }

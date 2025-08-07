@@ -165,7 +165,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 	var summary strings.Builder
 
 	// Header line
-	summary.WriteString("  [green::b]Validator Performance Overview[white]\n")
+	summary.WriteString("  [green::b]● Validator Performance Overview[white]\n")
 
 	// Client status line
 	summary.WriteString("  ")
@@ -202,8 +202,8 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 	}
 	summary.WriteString("\n")
 
-	// Separator line
-	summary.WriteString("  [dim]" + strings.Repeat("─", 75) + "[white]\n")
+	// Empty line for separation
+	summary.WriteString("\n")
 
 	// Attestations
 	attestPercent := metrics["attestPercent"].(float64)
@@ -265,8 +265,8 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 	// Validator States
 	if validatorStates, ok := metrics["validatorStates"].(map[string]uint64); ok && len(validatorStates) > 0 {
-		summary.WriteString("\n  [dim]" + strings.Repeat("─", 75) + "[white]\n")
-		summary.WriteString("  [green::b]Validator States[white]\n")
+		summary.WriteString("\n\n") // Two empty lines for clear separation
+		summary.WriteString("  [green::b]● Validator States[white]\n")
 
 		// Calculate total validators
 		var totalValidators uint64
