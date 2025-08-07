@@ -237,13 +237,23 @@ func checkValidatorClient(clientCfg config.ClientConfig) {
 		}
 
 		// MEV/Builder metrics
-		if info.BestBidRelayCount > 0 || info.BlocksFromRelay > 0 {
-			fmt.Printf("\n  MEV/Builder:\n")
-			if info.BestBidRelayCount > 0 {
-				fmt.Printf("    Best Bid Relay Count: %d\n", info.BestBidRelayCount)
+		if info.RelayAuctionCount > 0 || info.BlocksFromRelay > 0 {
+			fmt.Printf("\n  MEV/Relays:\n")
+			if info.RelayAuctionCount > 0 {
+				fmt.Printf("    Relay Auctions: %d (avg %.2fs", info.RelayAuctionCount, info.RelayAuctionDuration)
+				if info.RelayAuctionDuration > 4.0 {
+					fmt.Printf(" - slow!")
+				} else if info.RelayAuctionDuration > 2.0 {
+					fmt.Printf(" - moderate")
+				} else {
+					fmt.Printf(" - good")
+				}
+				fmt.Println(")")
+			} else {
+				fmt.Printf("    Relay Auctions: None\n")
 			}
 			if info.BlocksFromRelay > 0 {
-				fmt.Printf("    Blocks from Relay: %d\n", info.BlocksFromRelay)
+				fmt.Printf("    Blocks via Relay: %d\n", info.BlocksFromRelay)
 			}
 		}
 

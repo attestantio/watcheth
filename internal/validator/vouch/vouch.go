@@ -169,6 +169,14 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 			}
 		}
 	}
+
+	// Relay auction duration and count (from histogram)
+	if mf, ok := metricFamilies["vouch_relay_auction_block_duration_seconds"]; ok {
+		if sum, count := getHistogramSumAndCount(mf); count > 0 {
+			info.RelayAuctionDuration = sum / count
+			info.RelayAuctionCount = uint64(count)
+		}
+	}
 }
 
 // Helper functions

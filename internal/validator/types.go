@@ -20,4 +20,6 @@ type ValidatorNodeInfo struct {
 	BeaconNodeResponseTime   float64 // Average response time in milliseconds
 	BestBidRelayCount        uint64  // Number of relays providing best bid
 	BlocksFromRelay          uint64  // Blocks built via relay
+	RelayAuctionDuration     float64 // Time to get best bid from relays (seconds)
+	RelayAuctionCount        uint64  // Number of relay auctions (indicates relay usage)
 }

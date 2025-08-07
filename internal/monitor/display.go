@@ -192,10 +192,10 @@ func (d *Display) getValidatorHeaders() []string {
 		"Port",
 		"Status",
 		"Ready",
-		"Attestations",
-		"Proposals",
+		"Attest Perf",
+		"Propose Perf",
 		"Client Latency",
-		"Relays",
+		"Relay Auctions",
 	}
 }
 
@@ -723,26 +723,31 @@ func (d *Display) updateValidatorTable(infos []*validator.ValidatorNodeInfo) {
 		d.setValidatorCell(tableRow, col, readyText, readyColor)
 		col++
 
-		// Attestations (combined time and rate)
+		// Attestation Performance - Show timing (success rate)
 		var attText string
 		var attColor tcell.Color
 		if info.IsConnected {
-			parts := []string{}
-			if info.AttestationMarkSeconds > 0 {
-				parts = append(parts, fmt.Sprintf("%.1fs", info.AttestationMarkSeconds))
-			}
-			if info.AttestationSuccessRate > 0 {
-				parts = append(parts, fmt.Sprintf("%.1f%%", info.AttestationSuccessRate))
-			}
-			if len(parts) > 0 {
-				attText = strings.Join(parts, " / ")
+			if info.AttestationMarkSeconds > 0 || info.AttestationSuccessRate > 0 {
+				if info.AttestationMarkSeconds > 0 && info.AttestationSuccessRate > 0 {
+					// Both metrics available: "2.3s (98%)"
+					attText = fmt.Sprintf("%.1fs (%.0f%%)", info.AttestationMarkSeconds, info.AttestationSuccessRate)
+				} else if info.AttestationMarkSeconds > 0 {
+					// Only timing available
+					attText = fmt.Sprintf("%.1fs", info.AttestationMarkSeconds)
+				} else {
+					// Only success rate available
+					attText = fmt.Sprintf("%.0f%%", info.AttestationSuccessRate)
+				}
+
 				// Color based on success rate (more important than timing)
-				if info.AttestationSuccessRate >= 95 {
-					attColor = tcell.ColorGreen
-				} else if info.AttestationSuccessRate >= 85 {
-					attColor = tcell.ColorYellow
-				} else if info.AttestationSuccessRate > 0 {
-					attColor = tcell.ColorRed
+				if info.AttestationSuccessRate > 0 {
+					if info.AttestationSuccessRate >= 95 {
+						attColor = tcell.ColorGreen
+					} else if info.AttestationSuccessRate >= 85 {
+						attColor = tcell.ColorYellow
+					} else {
+						attColor = tcell.ColorRed
+					}
 				} else {
 					// If no success rate, color based on time
 					if info.AttestationMarkSeconds <= 4 {
@@ -764,26 +769,31 @@ func (d *Display) updateValidatorTable(infos []*validator.ValidatorNodeInfo) {
 		d.setValidatorCell(tableRow, col, attText, attColor)
 		col++
 
-		// Proposals (combined time and rate)
+		// Proposal Performance - Show timing (success rate)
 		var propText string
 		var propColor tcell.Color
 		if info.IsConnected {
-			parts := []string{}
-			if info.BlockProposalMarkSeconds > 0 {
-				parts = append(parts, fmt.Sprintf("%.1fs", info.BlockProposalMarkSeconds))
-			}
-			if info.BlockProposalSuccessRate > 0 {
-				parts = append(parts, fmt.Sprintf("%.0f%%", info.BlockProposalSuccessRate))
-			}
-			if len(parts) > 0 {
-				propText = strings.Join(parts, " / ")
+			if info.BlockProposalMarkSeconds > 0 || info.BlockProposalSuccessRate > 0 {
+				if info.BlockProposalMarkSeconds > 0 && info.BlockProposalSuccessRate > 0 {
+					// Both metrics available: "1.2s (100%)"
+					propText = fmt.Sprintf("%.1fs (%.0f%%)", info.BlockProposalMarkSeconds, info.BlockProposalSuccessRate)
+				} else if info.BlockProposalMarkSeconds > 0 {
+					// Only timing available
+					propText = fmt.Sprintf("%.1fs", info.BlockProposalMarkSeconds)
+				} else {
+					// Only success rate available
+					propText = fmt.Sprintf("%.0f%%", info.BlockProposalSuccessRate)
+				}
+
 				// Color based on success rate (more important than timing)
-				if info.BlockProposalSuccessRate >= 95 {
-					propColor = tcell.ColorGreen
-				} else if info.BlockProposalSuccessRate >= 85 {
-					propColor = tcell.ColorYellow
-				} else if info.BlockProposalSuccessRate > 0 {
-					propColor = tcell.ColorRed
+				if info.BlockProposalSuccessRate > 0 {
+					if info.BlockProposalSuccessRate >= 95 {
+						propColor = tcell.ColorGreen
+					} else if info.BlockProposalSuccessRate >= 85 {
+						propColor = tcell.ColorYellow
+					} else {
+						propColor = tcell.ColorRed
+					}
 				} else {
 					// If no success rate, color based on time
 					if info.BlockProposalMarkSeconds <= 2 {
@@ -824,20 +834,32 @@ func (d *Display) updateValidatorTable(infos []*validator.ValidatorNodeInfo) {
 		d.setValidatorCell(tableRow, col, clientLatencyText, clientLatencyColor)
 		col++
 
-		// Relay Info (Best Bid Count / Blocks from Relay)
+		// Relay Auctions - Show count and average time
 		var relayText string
+		var relayColor tcell.Color
 		if info.IsConnected {
-			if info.BlocksFromRelay > 0 {
-				relayText = fmt.Sprintf("%d/%d", info.BestBidRelayCount, info.BlocksFromRelay)
-			} else if info.BestBidRelayCount > 0 {
-				relayText = fmt.Sprintf("%d", info.BestBidRelayCount)
+			if info.RelayAuctionCount > 0 {
+				// Show count and average time: "142 (1.2s)"
+				relayText = fmt.Sprintf("%d (%.1fs)", info.RelayAuctionCount, info.RelayAuctionDuration)
+
+				// Color based on auction speed
+				if info.RelayAuctionDuration > 4.0 {
+					relayColor = tcell.ColorRed // Very slow
+				} else if info.RelayAuctionDuration > 2.0 {
+					relayColor = tcell.ColorYellow // Moderate
+				} else {
+					relayColor = tcell.ColorGreen // Good performance
+				}
 			} else {
-				relayText = "-"
+				// No relay auctions
+				relayText = "0"
+				relayColor = tcell.ColorRed
 			}
 		} else {
 			relayText = "-"
+			relayColor = tcell.ColorGray
 		}
-		d.setValidatorCell(tableRow, col, relayText, tcell.ColorWhite)
+		d.setValidatorCell(tableRow, col, relayText, relayColor)
 		col++
 	}
 }
