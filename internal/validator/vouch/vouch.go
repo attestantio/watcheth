@@ -101,23 +101,22 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 		}
 	}
 
-	// Attestation success rate
-	var attestationSuccess, attestationFailed uint64
+	// Attestation success rate and counts
 	if mf, ok := metricFamilies["vouch_attestation_process_requests_total"]; ok {
 		for _, m := range mf.Metric {
 			result := getLabelValue(m.Label, "result")
 			if m.Counter != nil && m.Counter.Value != nil {
 				if result == "succeeded" {
-					attestationSuccess = uint64(*m.Counter.Value)
+					info.AttestationSucceeded = uint64(*m.Counter.Value)
 				} else if result == "failed" {
-					attestationFailed = uint64(*m.Counter.Value)
+					info.AttestationFailed = uint64(*m.Counter.Value)
 				}
 			}
 		}
 	}
-	total := attestationSuccess + attestationFailed
+	total := info.AttestationSucceeded + info.AttestationFailed
 	if total > 0 {
-		info.AttestationSuccessRate = float64(attestationSuccess) / float64(total) * 100
+		info.AttestationSuccessRate = float64(info.AttestationSucceeded) / float64(total) * 100
 	}
 
 	// Block proposal mark seconds
@@ -127,23 +126,23 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 		}
 	}
 
-	// Block proposal success rate
-	var proposalSuccess, proposalFailed uint64
+	// Block proposal success rate and counts
+	// Note: These are the same metrics as BeaconBlockProposalSucceeded/Failed
 	if mf, ok := metricFamilies["vouch_beaconblockproposal_process_requests_total"]; ok {
 		for _, m := range mf.Metric {
 			result := getLabelValue(m.Label, "result")
 			if m.Counter != nil && m.Counter.Value != nil {
 				if result == "succeeded" {
-					proposalSuccess = uint64(*m.Counter.Value)
+					info.BlockProposalSucceeded = uint64(*m.Counter.Value)
 				} else if result == "failed" {
-					proposalFailed = uint64(*m.Counter.Value)
+					info.BlockProposalFailed = uint64(*m.Counter.Value)
 				}
 			}
 		}
 	}
-	proposalTotal := proposalSuccess + proposalFailed
+	proposalTotal := info.BlockProposalSucceeded + info.BlockProposalFailed
 	if proposalTotal > 0 {
-		info.BlockProposalSuccessRate = float64(proposalSuccess) / float64(proposalTotal) * 100
+		info.BlockProposalSuccessRate = float64(info.BlockProposalSucceeded) / float64(proposalTotal) * 100
 	}
 
 	// Beacon node response time (average from histogram, convert to milliseconds)
@@ -187,6 +186,34 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 					info.RelayRegistrationSucceeded = uint64(*m.Counter.Value)
 				} else if result == "failed" {
 					info.RelayRegistrationFailed = uint64(*m.Counter.Value)
+				}
+			}
+		}
+	}
+
+	// Relay builder bid requests
+	if mf, ok := metricFamilies["vouch_relay_builder_bid_total"]; ok {
+		for _, m := range mf.Metric {
+			result := getLabelValue(m.Label, "result")
+			if m.Counter != nil && m.Counter.Value != nil {
+				if result == "succeeded" {
+					info.RelayBuilderBidSucceeded = uint64(*m.Counter.Value)
+				} else if result == "failed" {
+					info.RelayBuilderBidFailed = uint64(*m.Counter.Value)
+				}
+			}
+		}
+	}
+
+	// Relay execution config requests
+	if mf, ok := metricFamilies["vouch_relay_execution_config_total"]; ok {
+		for _, m := range mf.Metric {
+			result := getLabelValue(m.Label, "result")
+			if m.Counter != nil && m.Counter.Value != nil {
+				if result == "succeeded" {
+					info.RelayExecutionConfigSucceeded = uint64(*m.Counter.Value)
+				} else if result == "failed" {
+					info.RelayExecutionConfigFailed = uint64(*m.Counter.Value)
 				}
 			}
 		}
