@@ -218,6 +218,17 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 			}
 		}
 	}
+
+	// Validator states (vouch_accountmanager_accounts_total)
+	info.ValidatorStates = make(map[string]uint64)
+	if mf, ok := metricFamilies["vouch_accountmanager_accounts_total"]; ok {
+		for _, m := range mf.Metric {
+			state := getLabelValue(m.Label, "state")
+			if state != "" && m.Gauge != nil && m.Gauge.Value != nil {
+				info.ValidatorStates[state] = uint64(*m.Gauge.Value)
+			}
+		}
+	}
 }
 
 // Helper functions

@@ -201,8 +201,8 @@ func (d *Display) updateLayout() {
 		d.validatorSummary.SetBorder(false)
 		d.validatorSummary.SetDynamicColors(true)
 		d.validatorSummary.SetWrap(false)
-		flex.AddItem(d.validatorSummary, 10, 0, false) // Fixed height for summary (increased for client status line)
-		flex.AddItem(nil, 1, 0, false)                 // Space after summary
+		flex.AddItem(d.validatorSummary, 0, 1, false) // Dynamic height based on content
+		flex.AddItem(nil, 1, 0, false)                // Space after summary
 	}
 
 	// Consensus clients section with slot countdown

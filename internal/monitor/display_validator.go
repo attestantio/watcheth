@@ -9,7 +9,6 @@ import (
 
 func (d *Display) updateValidatorTable(infos []*validator.ValidatorNodeInfo) {
 	d.updateValidatorSummary(infos)
-	// Individual tables removed - summary provides comprehensive overview
 }
 
 // createProgressBar creates an ASCII progress bar
@@ -53,6 +52,9 @@ func calculateAggregateMetrics(infos []*validator.ValidatorNodeInfo) map[string]
 		readyCount               int
 	)
 
+	// Aggregate validator states across all clients
+	validatorStates := make(map[string]uint64)
+
 	for _, info := range infos {
 		if info == nil {
 			continue
@@ -77,6 +79,13 @@ func calculateAggregateMetrics(infos []*validator.ValidatorNodeInfo) map[string]
 
 			if info.BeaconNodeResponseTime > 0 {
 				totalLatency += info.BeaconNodeResponseTime
+			}
+
+			// Aggregate validator states
+			if info.ValidatorStates != nil {
+				for state, count := range info.ValidatorStates {
+					validatorStates[state] += count
+				}
 			}
 		}
 	}
@@ -136,6 +145,9 @@ func calculateAggregateMetrics(infos []*validator.ValidatorNodeInfo) map[string]
 	} else {
 		metrics["avgLatency"] = float64(0)
 	}
+
+	// Add validator states
+	metrics["validatorStates"] = validatorStates
 
 	return metrics
 }
@@ -248,8 +260,97 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 	latencyBar := createProgressBar(latencyPercent, 20)
 	latencyColor := getLatencyColor(avgLatency)
 	latencyStatus := getLatencyStatus(avgLatency)
-	summary.WriteString(fmt.Sprintf("  Avg Latency:  [%s]%s[white] %3.0fms (%s)",
+	summary.WriteString(fmt.Sprintf("  Avg Latency:  [%s]%s[white] %3.0fms (%s)\n",
 		latencyColor, latencyBar, avgLatency, latencyStatus))
+
+	// Validator States
+	if validatorStates, ok := metrics["validatorStates"].(map[string]uint64); ok && len(validatorStates) > 0 {
+		summary.WriteString("\n  [dim]" + strings.Repeat("─", 75) + "[white]\n")
+		summary.WriteString("  [green::b]Validator States[white]\n")
+
+		// Calculate total validators
+		var totalValidators uint64
+		for _, count := range validatorStates {
+			totalValidators += count
+		}
+
+		// Display key states in a compact format
+		activeOngoing := validatorStates["active_ongoing"]
+		activeExiting := validatorStates["active_exiting"]
+		activeSlashed := validatorStates["active_slashed"]
+		pendingInit := validatorStates["pending_initialized"]
+		pendingQueued := validatorStates["pending_queued"]
+		exitedUnslashed := validatorStates["exited_unslashed"]
+		exitedSlashed := validatorStates["exited_slashed"]
+		withdrawPossible := validatorStates["withdrawal_possible"]
+		withdrawDone := validatorStates["withdrawal_done"]
+		unknown := validatorStates["unknown"]
+
+		// Active validators line
+		if activeOngoing > 0 || activeExiting > 0 || activeSlashed > 0 {
+			summary.WriteString(fmt.Sprintf("  Active:       [green]%d ongoing[white]", activeOngoing))
+			if activeExiting > 0 {
+				summary.WriteString(fmt.Sprintf(", [yellow]%d exiting[white]", activeExiting))
+			}
+			if activeSlashed > 0 {
+				summary.WriteString(fmt.Sprintf(", [red]%d slashed ⚠️[white]", activeSlashed))
+			}
+			summary.WriteString("\n")
+		}
+
+		// Pending validators line
+		if pendingInit > 0 || pendingQueued > 0 {
+			summary.WriteString(fmt.Sprintf("  Pending:      "))
+			if pendingInit > 0 {
+				summary.WriteString(fmt.Sprintf("[yellow]%d initialized[white]", pendingInit))
+				if pendingQueued > 0 {
+					summary.WriteString(", ")
+				}
+			}
+			if pendingQueued > 0 {
+				summary.WriteString(fmt.Sprintf("[yellow]%d queued[white]", pendingQueued))
+			}
+			summary.WriteString("\n")
+		}
+
+		// Exited validators line
+		if exitedUnslashed > 0 || exitedSlashed > 0 {
+			summary.WriteString(fmt.Sprintf("  Exited:       "))
+			if exitedUnslashed > 0 {
+				summary.WriteString(fmt.Sprintf("[dim]%d successfully[white]", exitedUnslashed))
+				if exitedSlashed > 0 {
+					summary.WriteString(", ")
+				}
+			}
+			if exitedSlashed > 0 {
+				summary.WriteString(fmt.Sprintf("[red]%d slashed[white]", exitedSlashed))
+			}
+			summary.WriteString("\n")
+		}
+
+		// Withdrawal states line
+		if withdrawPossible > 0 || withdrawDone > 0 {
+			summary.WriteString(fmt.Sprintf("  Withdrawal:   "))
+			if withdrawPossible > 0 {
+				summary.WriteString(fmt.Sprintf("[blue]%d possible[white]", withdrawPossible))
+				if withdrawDone > 0 {
+					summary.WriteString(", ")
+				}
+			}
+			if withdrawDone > 0 {
+				summary.WriteString(fmt.Sprintf("[blue]%d done[white]", withdrawDone))
+			}
+			summary.WriteString("\n")
+		}
+
+		// Unknown validators (if any)
+		if unknown > 0 {
+			summary.WriteString(fmt.Sprintf("  Unknown:      [dim]%d validators[white]\n", unknown))
+		}
+
+		// Total validators summary
+		summary.WriteString(fmt.Sprintf("  [yellow::b]Total:        %d validators[white]", totalValidators))
+	}
 
 	d.validatorSummary.SetText(summary.String()).SetDynamicColors(true)
 }

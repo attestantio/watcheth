@@ -34,4 +34,7 @@ type ValidatorNodeInfo struct {
 	RelayBuilderBidFailed         uint64 // Failed relay builder bid requests
 	RelayExecutionConfigSucceeded uint64 // Successful relay execution config requests
 	RelayExecutionConfigFailed    uint64 // Failed relay execution config requests
+
+	// Validator states (vouch_accountmanager_accounts_total)
+	ValidatorStates map[string]uint64 // Map of state names to validator counts
 }
