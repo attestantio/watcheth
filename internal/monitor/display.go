@@ -24,10 +24,10 @@ const (
 
 // Animation frames for the title
 var titleAnimationFrames = []string{
-	"  ┌─── watcheth ───┐\n  │     /\\_/\\      │\n  │    ( o.o )     │\n  │     > ^ <      │\n  └────────────────┘",
-	"  ┌─── watcheth ───┐\n  │     /\\_/\\      │\n  │    ( o.o )     │\n  │     > ^ <      │\n  └────────────────┘",
-	"  ┌─── watcheth ───┐\n  │     /\\_/\\      │\n  │    ( -.- )     │\n  │     > ^ <      │\n  └────────────────┘",
-	"  ┌─── watcheth ───┐\n  │     /\\_/\\      │\n  │    ( o.o )     │\n  │     > ^ <      │\n  └────────────────┘",
+	"   /\\_/\\     \n  ( o.o )    \n   > ^ <     \n  watcheth    ",
+	"   /\\_/\\     \n  ( o.o )    \n   > ^ <     \n  watcheth    ",
+	"   /\\_/\\     \n  ( -.- )    \n   > ^ <     \n  watcheth    ",
+	"   /\\_/\\     \n  ( o.o )    \n   > ^ <     \n  watcheth    ",
 }
 
 type Display struct {
@@ -191,7 +191,7 @@ func (d *Display) setupLayout() {
 func (d *Display) updateLayout() {
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(d.title, 5, 0, false). // Cat face animation
+		AddItem(d.title, 4, 0, false). // Simple cat animation
 		AddItem(nil, 1, 0, false)      // Empty space
 
 	// Check if we have validator clients for summary

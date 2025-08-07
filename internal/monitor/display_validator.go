@@ -153,7 +153,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 	var summary strings.Builder
 
 	// Header line
-	summary.WriteString("  [green::b]⚔ Validator Performance Overview ⚔[white]\n")
+	summary.WriteString("  [green::b]Validator Performance Overview[white]\n")
 
 	// Client status line
 	summary.WriteString("  ")
