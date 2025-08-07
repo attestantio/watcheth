@@ -24,56 +24,54 @@ const (
 
 // Animation frames for the title
 var titleAnimationFrames = []string{
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└────────────────┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└────────────────┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( -.- )     │\n│     > ^ <      │\n└────────────────┘",
-	"┌─── watcheth ───┐\n│     /\\_/\\      │\n│    ( o.o )     │\n│     > ^ <      │\n└────────────────┘",
+	"  ┌─── watcheth ───┐\n  │     /\\_/\\      │\n  │    ( o.o )     │\n  │     > ^ <      │\n  └────────────────┘",
+	"  ┌─── watcheth ───┐\n  │     /\\_/\\      │\n  │    ( o.o )     │\n  │     > ^ <      │\n  └────────────────┘",
+	"  ┌─── watcheth ───┐\n  │     /\\_/\\      │\n  │    ( -.- )     │\n  │     > ^ <      │\n  └────────────────┘",
+	"  ┌─── watcheth ───┐\n  │     /\\_/\\      │\n  │    ( o.o )     │\n  │     > ^ <      │\n  └────────────────┘",
 }
 
 type Display struct {
-	app                 *tview.Application
-	consensusTable      *tview.Table
-	executionTable      *tview.Table
-	validatorTable      *tview.Table
-	validatorRelayTable *tview.Table
-	monitor             *Monitor
-	help                *tview.TextView
-	refreshInterval     time.Duration
-	nextRefresh         time.Time
-	countdownTicker     *time.Ticker
-	title               *tview.TextView
-	animationTicker     *time.Ticker
-	animationFrame      int
-	logView             *tview.TextView
-	logReader           *LogReader
-	showLogs            bool
-	selectedLogClient   int
-	clientNames         []string
-	nextSlotTime        time.Duration   // Time to next slot
-	consensusHeader     *tview.TextView // Header for consensus section
-	showVersions        bool            // Toggle for showing version columns
+	app               *tview.Application
+	consensusTable    *tview.Table
+	executionTable    *tview.Table
+	validatorSummary  *tview.TextView
+	monitor           *Monitor
+	help              *tview.TextView
+	refreshInterval   time.Duration
+	nextRefresh       time.Time
+	countdownTicker   *time.Ticker
+	title             *tview.TextView
+	animationTicker   *time.Ticker
+	animationFrame    int
+	logView           *tview.TextView
+	logReader         *LogReader
+	showLogs          bool
+	selectedLogClient int
+	clientNames       []string
+	nextSlotTime      time.Duration   // Time to next slot
+	consensusHeader   *tview.TextView // Header for consensus section
+	showVersions      bool            // Toggle for showing version columns
 }
 
 func NewDisplay(monitor *Monitor) *Display {
 	return &Display{
-		app:                 tview.NewApplication(),
-		consensusTable:      tview.NewTable(),
-		executionTable:      tview.NewTable(),
-		validatorTable:      tview.NewTable(),
-		validatorRelayTable: tview.NewTable(),
-		monitor:             monitor,
-		help:                tview.NewTextView(),
-		title:               tview.NewTextView(),
-		logView:             tview.NewTextView(),
-		logReader:           NewLogReader(),
-		refreshInterval:     monitor.GetRefreshInterval(),
-		nextRefresh:         time.Now().Add(monitor.GetRefreshInterval()),
-		animationFrame:      0,
-		showLogs:            false,
-		selectedLogClient:   0,
-		clientNames:         []string{},
-		consensusHeader:     tview.NewTextView(),
-		showVersions:        false, // Hidden by default
+		app:               tview.NewApplication(),
+		consensusTable:    tview.NewTable(),
+		executionTable:    tview.NewTable(),
+		validatorSummary:  tview.NewTextView(),
+		monitor:           monitor,
+		help:              tview.NewTextView(),
+		title:             tview.NewTextView(),
+		logView:           tview.NewTextView(),
+		logReader:         NewLogReader(),
+		refreshInterval:   monitor.GetRefreshInterval(),
+		nextRefresh:       time.Now().Add(monitor.GetRefreshInterval()),
+		animationFrame:    0,
+		showLogs:          false,
+		selectedLogClient: 0,
+		clientNames:       []string{},
+		consensusHeader:   tview.NewTextView(),
+		showVersions:      false, // Hidden by default
 	}
 }
 
@@ -117,18 +115,6 @@ func (d *Display) setupTables() {
 		SetFixed(1, 0).
 		SetSelectable(false, false)
 
-	// Setup validator table
-	d.validatorTable.Clear()
-	d.validatorTable.SetBorders(true).
-		SetFixed(1, 0).
-		SetSelectable(false, false)
-
-	// Setup validator relay table
-	d.validatorRelayTable.Clear()
-	d.validatorRelayTable.SetBorders(true).
-		SetFixed(1, 0).
-		SetSelectable(false, false)
-
 	// Set up header rows
 	for col, header := range d.getConsensusHeaders() {
 		paddedHeader := " " + header + " "
@@ -146,24 +132,6 @@ func (d *Display) setupTables() {
 			SetAlign(tview.AlignLeft).
 			SetSelectable(false)
 		d.executionTable.SetCell(0, col, cell)
-	}
-
-	for col, header := range d.getValidatorHeaders() {
-		paddedHeader := " " + header + " "
-		cell := tview.NewTableCell(paddedHeader).
-			SetTextColor(tcell.ColorYellow).
-			SetAlign(tview.AlignLeft).
-			SetSelectable(false)
-		d.validatorTable.SetCell(0, col, cell)
-	}
-
-	for col, header := range d.getValidatorRelayHeaders() {
-		paddedHeader := " " + header + " "
-		cell := tview.NewTableCell(paddedHeader).
-			SetTextColor(tcell.ColorYellow).
-			SetAlign(tview.AlignLeft).
-			SetSelectable(false)
-		d.validatorRelayTable.SetCell(0, col, cell)
 	}
 }
 
@@ -202,28 +170,6 @@ func (d *Display) getExecutionHeaders() []string {
 	return headers
 }
 
-func (d *Display) getValidatorHeaders() []string {
-	return []string{
-		"Client",
-		"Port",
-		"Status",
-		"Ready",
-		"Attestation",
-		"Proposal",
-		"Latency",
-	}
-}
-
-func (d *Display) getValidatorRelayHeaders() []string {
-	return []string{
-		"Client",
-		"Relay Registrations",
-		"Builder Bids",
-		"Execution Config",
-		"Relay Duration",
-	}
-}
-
 func (d *Display) setupLayout() {
 	// Initialize title
 	d.title.SetText(titleAnimationFrames[0]).
@@ -248,6 +194,17 @@ func (d *Display) updateLayout() {
 		AddItem(d.title, 5, 0, false). // Cat face animation
 		AddItem(nil, 1, 0, false)      // Empty space
 
+	// Check if we have validator clients for summary
+	hasValidators := len(d.monitor.GetValidatorInfos()) > 0
+	if hasValidators {
+		// Setup validator summary box
+		d.validatorSummary.SetBorder(false)
+		d.validatorSummary.SetDynamicColors(true)
+		d.validatorSummary.SetWrap(false)
+		flex.AddItem(d.validatorSummary, 10, 0, false) // Fixed height for summary (increased for client status line)
+		flex.AddItem(nil, 1, 0, false)                 // Space after summary
+	}
+
 	// Consensus clients section with slot countdown
 	d.updateConsensusHeader()
 	d.consensusHeader.SetTextColor(tcell.ColorGreen)
@@ -261,35 +218,13 @@ func (d *Display) updateLayout() {
 	executionSection := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(nil, 1, 0, false). // Spacer
-		AddItem(tview.NewTextView().SetText("[Execution Clients]").SetTextColor(tcell.ColorGreen), 1, 0, false).
+		AddItem(tview.NewTextView().SetText("  [Execution Clients]").SetTextColor(tcell.ColorGreen), 1, 0, false).
 		AddItem(d.executionTable, 0, 1, false)
-
-	// Validator performance section
-	validatorPerfSection := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(nil, 1, 0, false). // Spacer
-		AddItem(tview.NewTextView().SetText("[Validator Duties]").SetTextColor(tcell.ColorGreen), 1, 0, false).
-		AddItem(d.validatorTable, 0, 1, false)
-
-	// Validator relay metrics section
-	validatorRelaySection := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(nil, 1, 0, false). // Spacer
-		AddItem(tview.NewTextView().SetText("[MEV & Relay Metrics]").SetTextColor(tcell.ColorGreen), 1, 0, false).
-		AddItem(d.validatorRelayTable, 0, 1, false)
-
-	// Check if we have validator clients
-	hasValidators := len(d.monitor.GetValidatorInfos()) > 0
 
 	tablesArea := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(consensusSection, 0, 1, true).
 		AddItem(executionSection, 0, 1, false)
-
-	if hasValidators {
-		tablesArea.AddItem(validatorPerfSection, 0, 1, false)
-		tablesArea.AddItem(validatorRelaySection, 0, 1, false)
-	}
 
 	if d.showLogs {
 		// Split view: tables and logs
@@ -388,7 +323,7 @@ func (d *Display) updateLoop() {
 
 func (d *Display) updateTables(update NodeUpdate) {
 	// Validate inputs
-	if d == nil || d.app == nil || d.consensusTable == nil || d.executionTable == nil || d.validatorTable == nil {
+	if d == nil || d.app == nil || d.consensusTable == nil || d.executionTable == nil {
 		return
 	}
 
@@ -698,9 +633,7 @@ func (d *Display) setExecutionCell(row, col int, text string, color tcell.Color)
 	d.setCell(d.executionTable, row, col, text, color)
 }
 
-func (d *Display) setValidatorCell(row, col int, text string, color tcell.Color) {
-	d.setCell(d.validatorTable, row, col, text, color)
-}
+// Removed - no longer using individual validator tables
 
 func (d *Display) setCell(table *tview.Table, row, col int, text string, color tcell.Color) {
 	// Bounds check
@@ -792,9 +725,9 @@ func (d *Display) formatDuration(duration time.Duration) string {
 }
 
 func (d *Display) updateConsensusHeader() {
-	headerText := "[Consensus Clients]"
+	headerText := "  [Consensus Clients]"
 	if d.nextSlotTime > 0 {
-		headerText = fmt.Sprintf("[Consensus Clients] Next slot in: %s", d.formatDuration(d.nextSlotTime))
+		headerText = fmt.Sprintf("  [Consensus Clients] Next slot in: %s", d.formatDuration(d.nextSlotTime))
 	}
 	d.consensusHeader.SetText(headerText)
 }
@@ -822,7 +755,7 @@ func (d *Display) updateHelpText() {
 		versionsHelp = " | v:Hide Versions"
 	}
 
-	helpText := fmt.Sprintf("q:Quit | r:Refresh%s%s | Next: %ds",
+	helpText := fmt.Sprintf("  q:Quit | r:Refresh%s%s | Next: %ds",
 		versionsHelp, logHelp, int(timeLeft.Seconds()))
 	d.help.SetText(helpText)
 }

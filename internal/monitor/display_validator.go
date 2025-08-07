@@ -2,292 +2,304 @@ package monitor
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
 	"github.com/watcheth/watcheth/internal/validator"
 )
 
 func (d *Display) updateValidatorTable(infos []*validator.ValidatorNodeInfo) {
-	d.updateValidatorPerfTable(infos)
-	d.updateValidatorRelayTable(infos)
+	d.updateValidatorSummary(infos)
+	// Individual tables removed - summary provides comprehensive overview
 }
 
-func (d *Display) updateValidatorPerfTable(infos []*validator.ValidatorNodeInfo) {
-	if infos == nil {
-		infos = []*validator.ValidatorNodeInfo{}
+// createProgressBar creates an ASCII progress bar
+func createProgressBar(percentage float64, width int) string {
+	if width <= 0 {
+		width = 20
 	}
 
-	// Ensure we have enough rows in the table
-	currentRows := d.validatorTable.GetRowCount()
-	neededRows := len(infos) + 1 // +1 for header
-
-	// Add rows if needed
-	columnCount := len(d.getValidatorHeaders())
-	for i := currentRows; i < neededRows; i++ {
-		for j := 0; j < columnCount; j++ {
-			d.validatorTable.SetCell(i, j, tview.NewTableCell(""))
-		}
+	// Ensure percentage is between 0 and 100
+	if percentage < 0 {
+		percentage = 0
+	}
+	if percentage > 100 {
+		percentage = 100
 	}
 
-	// Update table rows
-	for row, info := range infos {
+	filled := int(percentage * float64(width) / 100)
+	empty := width - filled
+
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
+	return bar
+}
+
+// calculateAggregateMetrics aggregates metrics across all validators
+func calculateAggregateMetrics(infos []*validator.ValidatorNodeInfo) map[string]interface{} {
+	metrics := make(map[string]interface{})
+
+	var (
+		totalAttestSucceeded     uint64
+		totalAttestFailed        uint64
+		totalPropSucceeded       uint64
+		totalPropFailed          uint64
+		totalRelayRegSucceeded   uint64
+		totalRelayRegFailed      uint64
+		totalBuilderBidSucceeded uint64
+		totalBuilderBidFailed    uint64
+		totalExecConfigSucceeded uint64
+		totalExecConfigFailed    uint64
+		totalLatency             float64
+		activeCount              int
+		readyCount               int
+	)
+
+	for _, info := range infos {
 		if info == nil {
 			continue
 		}
 
-		tableRow := row + 1 // +1 for header
-		col := 0
-
-		// Client name
-		d.setValidatorCell(tableRow, col, info.Name, tcell.ColorWhite)
-		col++
-
-		// Port
-		port := parsePortFromEndpoint(info.Endpoint)
-		d.setValidatorCell(tableRow, col, port, tcell.ColorWhite)
-		col++
-
-		// Status
-		var status string
-		var statusColor tcell.Color
 		if info.IsConnected {
-			status = "● Connected"
-			statusColor = tcell.ColorGreen
-		} else {
-			status = "○ Offline"
-			statusColor = tcell.ColorRed
-		}
-		d.setValidatorCell(tableRow, col, status, statusColor)
-		col++
-
-		// Ready status
-		var readyText string
-		var readyColor tcell.Color
-		if info.IsConnected {
+			activeCount++
 			if info.Ready {
-				readyText = "Yes"
-				readyColor = tcell.ColorGreen
-			} else {
-				readyText = "No"
-				readyColor = tcell.ColorRed
+				readyCount++
 			}
-		} else {
-			readyText = "-"
-			readyColor = tcell.ColorGray
-		}
-		d.setValidatorCell(tableRow, col, readyText, readyColor)
-		col++
 
-		// Attestation Performance - Show numbers and percentage
-		var attText string
-		var attColor tcell.Color
-		if info.IsConnected {
-			total := info.AttestationSucceeded + info.AttestationFailed
-			if total > 0 {
-				successRate := float64(info.AttestationSucceeded) / float64(total) * 100
-				attText = fmt.Sprintf("%d/%d (%.0f%%)", info.AttestationSucceeded, total, successRate)
-				if successRate >= 95 {
-					attColor = tcell.ColorGreen
-				} else if successRate >= 85 {
-					attColor = tcell.ColorYellow
-				} else {
-					attColor = tcell.ColorRed
-				}
-			} else {
-				attText = "0/0"
-				attColor = tcell.ColorGray
-			}
-		} else {
-			attText = "-"
-			attColor = tcell.ColorGray
-		}
-		d.setValidatorCell(tableRow, col, attText, attColor)
-		col++
+			totalAttestSucceeded += info.AttestationSucceeded
+			totalAttestFailed += info.AttestationFailed
+			totalPropSucceeded += info.BlockProposalSucceeded
+			totalPropFailed += info.BlockProposalFailed
+			totalRelayRegSucceeded += info.RelayRegistrationSucceeded
+			totalRelayRegFailed += info.RelayRegistrationFailed
+			totalBuilderBidSucceeded += info.RelayBuilderBidSucceeded
+			totalBuilderBidFailed += info.RelayBuilderBidFailed
+			totalExecConfigSucceeded += info.RelayExecutionConfigSucceeded
+			totalExecConfigFailed += info.RelayExecutionConfigFailed
 
-		// Proposal Performance - Show numbers and percentage
-		var propText string
-		var propColor tcell.Color
-		if info.IsConnected {
-			total := info.BlockProposalSucceeded + info.BlockProposalFailed
-			if total > 0 {
-				successRate := float64(info.BlockProposalSucceeded) / float64(total) * 100
-				propText = fmt.Sprintf("%d/%d (%.0f%%)", info.BlockProposalSucceeded, total, successRate)
-				if successRate >= 95 {
-					propColor = tcell.ColorGreen
-				} else if successRate >= 85 {
-					propColor = tcell.ColorYellow
-				} else {
-					propColor = tcell.ColorRed
-				}
-			} else {
-				propText = "0/0"
-				propColor = tcell.ColorGray
+			if info.BeaconNodeResponseTime > 0 {
+				totalLatency += info.BeaconNodeResponseTime
 			}
-		} else {
-			propText = "-"
-			propColor = tcell.ColorGray
 		}
-		d.setValidatorCell(tableRow, col, propText, propColor)
-		col++
-
-		// Client Latency
-		var clientLatencyText string
-		var clientLatencyColor tcell.Color
-		if info.IsConnected && info.BeaconNodeResponseTime > 0 {
-			clientLatencyText = fmt.Sprintf("%.0fms", info.BeaconNodeResponseTime)
-			if info.BeaconNodeResponseTime <= 100 {
-				clientLatencyColor = tcell.ColorGreen
-			} else if info.BeaconNodeResponseTime <= 250 {
-				clientLatencyColor = tcell.ColorYellow
-			} else {
-				clientLatencyColor = tcell.ColorRed
-			}
-		} else {
-			clientLatencyText = "-"
-			clientLatencyColor = tcell.ColorGray
-		}
-		d.setValidatorCell(tableRow, col, clientLatencyText, clientLatencyColor)
-		col++
 	}
+
+	metrics["total"] = len(infos)
+	metrics["active"] = activeCount
+	metrics["ready"] = readyCount
+
+	// Attestations
+	metrics["attestSucceeded"] = totalAttestSucceeded
+	metrics["attestTotal"] = totalAttestSucceeded + totalAttestFailed
+	if total := totalAttestSucceeded + totalAttestFailed; total > 0 {
+		metrics["attestPercent"] = float64(totalAttestSucceeded) * 100 / float64(total)
+	} else {
+		metrics["attestPercent"] = float64(0)
+	}
+
+	// Proposals
+	metrics["propSucceeded"] = totalPropSucceeded
+	metrics["propTotal"] = totalPropSucceeded + totalPropFailed
+	if total := totalPropSucceeded + totalPropFailed; total > 0 {
+		metrics["propPercent"] = float64(totalPropSucceeded) * 100 / float64(total)
+	} else {
+		metrics["propPercent"] = float64(0)
+	}
+
+	// Relay Registrations
+	metrics["relayRegSucceeded"] = totalRelayRegSucceeded
+	metrics["relayRegTotal"] = totalRelayRegSucceeded + totalRelayRegFailed
+	if total := totalRelayRegSucceeded + totalRelayRegFailed; total > 0 {
+		metrics["relayRegPercent"] = float64(totalRelayRegSucceeded) * 100 / float64(total)
+	} else {
+		metrics["relayRegPercent"] = float64(0)
+	}
+
+	// Builder Bids
+	metrics["builderSucceeded"] = totalBuilderBidSucceeded
+	metrics["builderTotal"] = totalBuilderBidSucceeded + totalBuilderBidFailed
+	if total := totalBuilderBidSucceeded + totalBuilderBidFailed; total > 0 {
+		metrics["builderPercent"] = float64(totalBuilderBidSucceeded) * 100 / float64(total)
+	} else {
+		metrics["builderPercent"] = float64(0)
+	}
+
+	// Exec Config
+	metrics["execConfigSucceeded"] = totalExecConfigSucceeded
+	metrics["execConfigTotal"] = totalExecConfigSucceeded + totalExecConfigFailed
+	if total := totalExecConfigSucceeded + totalExecConfigFailed; total > 0 {
+		metrics["execConfigPercent"] = float64(totalExecConfigSucceeded) * 100 / float64(total)
+	} else {
+		metrics["execConfigPercent"] = float64(0)
+	}
+
+	// Average latency
+	if activeCount > 0 {
+		metrics["avgLatency"] = totalLatency / float64(activeCount)
+	} else {
+		metrics["avgLatency"] = float64(0)
+	}
+
+	return metrics
 }
 
-func (d *Display) updateValidatorRelayTable(infos []*validator.ValidatorNodeInfo) {
-	if infos == nil {
-		infos = []*validator.ValidatorNodeInfo{}
+// updateValidatorSummary updates the summary display with aggregated metrics
+func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
+	if len(infos) == 0 {
+		d.validatorSummary.Clear()
+		return
 	}
 
-	// Ensure we have enough rows in the table
-	currentRows := d.validatorRelayTable.GetRowCount()
-	neededRows := len(infos) + 1 // +1 for header
+	metrics := calculateAggregateMetrics(infos)
 
-	// Add rows if needed
-	columnCount := len(d.getValidatorRelayHeaders())
-	for i := currentRows; i < neededRows; i++ {
-		for j := 0; j < columnCount; j++ {
-			d.validatorRelayTable.SetCell(i, j, tview.NewTableCell(""))
+	// Build the summary text
+	var summary strings.Builder
+
+	// Header line
+	summary.WriteString("  [green::b]⚔ Validator Performance Overview ⚔[white]\n")
+
+	// Client status line
+	summary.WriteString("  ")
+	for i, info := range infos {
+		if i > 0 {
+			summary.WriteString("  ")
 		}
+
+		// Extract port from endpoint
+		port := extractPort(info.Endpoint)
+
+		// Status indicator
+		var statusSymbol, statusColor string
+		if info.IsConnected {
+			statusSymbol = "●"
+			statusColor = "green"
+		} else {
+			statusSymbol = "○"
+			statusColor = "red"
+		}
+
+		// Ready indicator
+		var readyText, readyColor string
+		if info.IsConnected && info.Ready {
+			readyText = "Ready"
+			readyColor = "green"
+		} else {
+			readyText = "Not Ready"
+			readyColor = "red"
+		}
+
+		summary.WriteString(fmt.Sprintf("[%s]%s[white] %s:%s [%s]%s[white]",
+			statusColor, statusSymbol, info.Name, port, readyColor, readyText))
 	}
+	summary.WriteString("\n")
 
-	// Update table rows
-	for row, info := range infos {
-		if info == nil {
-			continue
-		}
+	// Separator line
+	summary.WriteString("  [dim]" + strings.Repeat("─", 75) + "[white]\n")
 
-		tableRow := row + 1 // +1 for header
-		col := 0
+	// Attestations
+	attestPercent := metrics["attestPercent"].(float64)
+	attestBar := createProgressBar(attestPercent, 20)
+	attestColor := getPercentageColor(attestPercent)
+	summary.WriteString(fmt.Sprintf("  Attestations: [%s]%s[white] %5.1f%% (%d/%d)\n",
+		attestColor, attestBar, attestPercent,
+		metrics["attestSucceeded"], metrics["attestTotal"]))
 
-		// Client name
-		d.setValidatorRelayCell(tableRow, col, info.Name, tcell.ColorWhite)
-		col++
-
-		// Relay Registrations - Show numbers and percentage
-		var relayText string
-		var relayColor tcell.Color
-		if info.IsConnected {
-			total := info.RelayRegistrationSucceeded + info.RelayRegistrationFailed
-			if total > 0 {
-				successRate := float64(info.RelayRegistrationSucceeded) / float64(total) * 100
-				// Format: "1410/1430 (98.5%)"
-				relayText = fmt.Sprintf("%d/%d (%.0f%%)", info.RelayRegistrationSucceeded, total, successRate)
-				if successRate >= 99 {
-					relayColor = tcell.ColorGreen
-				} else if successRate >= 90 {
-					relayColor = tcell.ColorYellow
-				} else {
-					relayColor = tcell.ColorRed
-				}
-			} else {
-				relayText = "0/0"
-				relayColor = tcell.ColorGray
-			}
-		} else {
-			relayText = "-"
-			relayColor = tcell.ColorGray
-		}
-		d.setValidatorRelayCell(tableRow, col, relayText, relayColor)
-		col++
-
-		// Builder Bids - Show numbers and percentage
-		var builderBidsText string
-		var builderBidsColor tcell.Color
-		if info.IsConnected {
-			total := info.RelayBuilderBidSucceeded + info.RelayBuilderBidFailed
-			if total > 0 {
-				successRate := float64(info.RelayBuilderBidSucceeded) / float64(total) * 100
-				builderBidsText = fmt.Sprintf("%d/%d (%.0f%%)", info.RelayBuilderBidSucceeded, total, successRate)
-				if successRate >= 99 {
-					builderBidsColor = tcell.ColorGreen
-				} else if successRate >= 90 {
-					builderBidsColor = tcell.ColorYellow
-				} else {
-					builderBidsColor = tcell.ColorRed
-				}
-			} else {
-				builderBidsText = "0/0"
-				builderBidsColor = tcell.ColorGray
-			}
-		} else {
-			builderBidsText = "-"
-			builderBidsColor = tcell.ColorGray
-		}
-		d.setValidatorRelayCell(tableRow, col, builderBidsText, builderBidsColor)
-		col++
-
-		// Execution Config - Show numbers and percentage
-		var execConfigText string
-		var execConfigColor tcell.Color
-		if info.IsConnected {
-			total := info.RelayExecutionConfigSucceeded + info.RelayExecutionConfigFailed
-			if total > 0 {
-				successRate := float64(info.RelayExecutionConfigSucceeded) / float64(total) * 100
-				execConfigText = fmt.Sprintf("%d/%d (%.0f%%)", info.RelayExecutionConfigSucceeded, total, successRate)
-				if successRate >= 99 {
-					execConfigColor = tcell.ColorGreen
-				} else if successRate >= 90 {
-					execConfigColor = tcell.ColorYellow
-				} else {
-					execConfigColor = tcell.ColorRed
-				}
-			} else {
-				execConfigText = "0/0"
-				execConfigColor = tcell.ColorGray
-			}
-		} else {
-			execConfigText = "-"
-			execConfigColor = tcell.ColorGray
-		}
-		d.setValidatorRelayCell(tableRow, col, execConfigText, execConfigColor)
-		col++
-
-		// Relay Auction Duration - Show average time
-		var relayDurText string
-		var relayDurColor tcell.Color
-		if info.IsConnected {
-			if info.RelayAuctionCount > 0 && info.RelayAuctionDuration > 0 {
-				relayDurText = fmt.Sprintf("%.2fs", info.RelayAuctionDuration)
-				// Color based on auction speed
-				if info.RelayAuctionDuration <= 2.0 {
-					relayDurColor = tcell.ColorGreen // Fast
-				} else if info.RelayAuctionDuration <= 4.0 {
-					relayDurColor = tcell.ColorYellow // Moderate
-				} else {
-					relayDurColor = tcell.ColorRed // Slow
-				}
-			} else {
-				relayDurText = "-"
-				relayDurColor = tcell.ColorGray
-			}
-		} else {
-			relayDurText = "-"
-			relayDurColor = tcell.ColorGray
-		}
-		d.setValidatorRelayCell(tableRow, col, relayDurText, relayDurColor)
-		col++
+	// Proposals
+	propPercent := metrics["propPercent"].(float64)
+	propBar := createProgressBar(propPercent, 20)
+	propColor := getPercentageColor(propPercent)
+	propTotal := metrics["propTotal"].(uint64)
+	var propDisplay string
+	if propTotal > 0 {
+		propDisplay = fmt.Sprintf("(%d/%d)", metrics["propSucceeded"], propTotal)
+	} else {
+		propDisplay = "(no proposals yet)"
 	}
+	summary.WriteString(fmt.Sprintf("  Proposals:    [%s]%s[white] %5.1f%% %s\n",
+		propColor, propBar, propPercent, propDisplay))
+
+	// Relay Registrations
+	relayRegPercent := metrics["relayRegPercent"].(float64)
+	relayRegBar := createProgressBar(relayRegPercent, 20)
+	relayRegColor := getPercentageColor(relayRegPercent)
+	summary.WriteString(fmt.Sprintf("  Relay Regs:   [%s]%s[white] %5.1f%% (%d/%d)\n",
+		relayRegColor, relayRegBar, relayRegPercent,
+		metrics["relayRegSucceeded"], metrics["relayRegTotal"]))
+
+	// Builder Bids
+	builderPercent := metrics["builderPercent"].(float64)
+	builderBar := createProgressBar(builderPercent, 20)
+	builderColor := getPercentageColor(builderPercent)
+	summary.WriteString(fmt.Sprintf("  Builder Bids: [%s]%s[white] %5.1f%% (%d/%d)\n",
+		builderColor, builderBar, builderPercent,
+		metrics["builderSucceeded"], metrics["builderTotal"]))
+
+	// Exec Config
+	execPercent := metrics["execConfigPercent"].(float64)
+	execBar := createProgressBar(execPercent, 20)
+	execColor := getPercentageColor(execPercent)
+	summary.WriteString(fmt.Sprintf("  Exec Config:  [%s]%s[white] %5.1f%% (%d/%d)\n",
+		execColor, execBar, execPercent,
+		metrics["execConfigSucceeded"], metrics["execConfigTotal"]))
+
+	// Average Latency
+	avgLatency := metrics["avgLatency"].(float64)
+	latencyPercent := 100.0 - (avgLatency / 5) // Scale: 0ms = 100%, 500ms = 0%
+	if latencyPercent < 0 {
+		latencyPercent = 0
+	}
+	latencyBar := createProgressBar(latencyPercent, 20)
+	latencyColor := getLatencyColor(avgLatency)
+	latencyStatus := getLatencyStatus(avgLatency)
+	summary.WriteString(fmt.Sprintf("  Avg Latency:  [%s]%s[white] %3.0fms (%s)",
+		latencyColor, latencyBar, avgLatency, latencyStatus))
+
+	d.validatorSummary.SetText(summary.String()).SetDynamicColors(true)
 }
 
-func (d *Display) setValidatorRelayCell(row, col int, text string, color tcell.Color) {
-	d.setCell(d.validatorRelayTable, row, col, text, color)
+func getPercentageColor(percentage float64) string {
+	if percentage >= 99 {
+		return "green"
+	} else if percentage >= 90 {
+		return "yellow"
+	}
+	return "red"
+}
+
+func getLatencyColor(latency float64) string {
+	if latency <= 50 {
+		return "green"
+	} else if latency <= 150 {
+		return "yellow"
+	}
+	return "red"
+}
+
+func getLatencyStatus(latency float64) string {
+	if latency <= 50 {
+		return "Excellent"
+	} else if latency <= 100 {
+		return "Good"
+	} else if latency <= 200 {
+		return "Fair"
+	}
+	return "Poor"
+}
+
+// extractPort extracts the port number from an endpoint URL
+func extractPort(endpoint string) string {
+	// Try to extract port from URL like http://localhost:9095/metrics
+	if strings.Contains(endpoint, "://") {
+		parts := strings.Split(endpoint, "://")
+		if len(parts) > 1 {
+			hostPort := parts[1]
+			// Remove path if present
+			if idx := strings.Index(hostPort, "/"); idx != -1 {
+				hostPort = hostPort[:idx]
+			}
+			// Extract port
+			if idx := strings.LastIndex(hostPort, ":"); idx != -1 {
+				return hostPort[idx+1:]
+			}
+		}
+	}
+	// If no port found, return empty
+	return ""
 }
