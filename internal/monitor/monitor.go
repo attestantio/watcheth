@@ -7,20 +7,24 @@ import (
 
 	"github.com/watcheth/watcheth/internal/consensus"
 	"github.com/watcheth/watcheth/internal/execution"
+	"github.com/watcheth/watcheth/internal/validator"
 )
 
 type NodeUpdate struct {
 	ConsensusInfos []*consensus.ConsensusNodeInfo
 	ExecutionInfos []*execution.ExecutionNodeInfo
+	ValidatorInfos []*validator.ValidatorNodeInfo
 }
 
 type Monitor struct {
 	consensusClients []consensus.Client
 	executionClients []execution.Client
+	validatorClients []validator.Client
 	refreshInterval  time.Duration
 
 	consensusInfos []*consensus.ConsensusNodeInfo
 	executionInfos []*execution.ExecutionNodeInfo
+	validatorInfos []*validator.ValidatorNodeInfo
 
 	mu         sync.RWMutex
 	updateChan chan NodeUpdate
@@ -30,9 +34,11 @@ func NewMonitor(refreshInterval time.Duration) *Monitor {
 	return &Monitor{
 		consensusClients: make([]consensus.Client, 0),
 		executionClients: make([]execution.Client, 0),
+		validatorClients: make([]validator.Client, 0),
 		refreshInterval:  refreshInterval,
 		consensusInfos:   make([]*consensus.ConsensusNodeInfo, 0),
 		executionInfos:   make([]*execution.ExecutionNodeInfo, 0),
+		validatorInfos:   make([]*validator.ValidatorNodeInfo, 0),
 		updateChan:       make(chan NodeUpdate, 1),
 	}
 }
@@ -49,6 +55,13 @@ func (m *Monitor) AddExecutionClient(client execution.Client) {
 	defer m.mu.Unlock()
 	m.executionClients = append(m.executionClients, client)
 	m.executionInfos = append(m.executionInfos, &execution.ExecutionNodeInfo{})
+}
+
+func (m *Monitor) AddValidatorClient(client validator.Client) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.validatorClients = append(m.validatorClients, client)
+	m.validatorInfos = append(m.validatorInfos, &validator.ValidatorNodeInfo{})
 }
 
 func (m *Monitor) Start(ctx context.Context) {
@@ -109,16 +122,37 @@ func (m *Monitor) updateAll(ctx context.Context) {
 		}(i, client)
 	}
 
+	// Update validator clients
+	validatorResults := make([]*validator.ValidatorNodeInfo, len(m.validatorClients))
+	for i, client := range m.validatorClients {
+		wg.Add(1)
+		go func(idx int, c validator.Client) {
+			defer wg.Done()
+
+			updateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+
+			info, err := c.GetNodeInfo(updateCtx)
+			if err != nil {
+				validatorResults[idx] = info
+			} else {
+				validatorResults[idx] = info
+			}
+		}(i, client)
+	}
+
 	wg.Wait()
 
 	m.mu.Lock()
 	m.consensusInfos = consensusResults
 	m.executionInfos = executionResults
+	m.validatorInfos = validatorResults
 	m.mu.Unlock()
 
 	update := NodeUpdate{
 		ConsensusInfos: consensusResults,
 		ExecutionInfos: executionResults,
+		ValidatorInfos: validatorResults,
 	}
 
 	select {
@@ -137,9 +171,13 @@ func (m *Monitor) GetNodeInfos() NodeUpdate {
 	executionInfos := make([]*execution.ExecutionNodeInfo, len(m.executionInfos))
 	copy(executionInfos, m.executionInfos)
 
+	validatorInfos := make([]*validator.ValidatorNodeInfo, len(m.validatorInfos))
+	copy(validatorInfos, m.validatorInfos)
+
 	return NodeUpdate{
 		ConsensusInfos: consensusInfos,
 		ExecutionInfos: executionInfos,
+		ValidatorInfos: validatorInfos,
 	}
 }
 
@@ -167,5 +205,14 @@ func (m *Monitor) GetExecutionInfos() []*execution.ExecutionNodeInfo {
 
 	infos := make([]*execution.ExecutionNodeInfo, len(m.executionInfos))
 	copy(infos, m.executionInfos)
+	return infos
+}
+
+func (m *Monitor) GetValidatorInfos() []*validator.ValidatorNodeInfo {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	infos := make([]*validator.ValidatorNodeInfo, len(m.validatorInfos))
+	copy(infos, m.validatorInfos)
 	return infos
 }

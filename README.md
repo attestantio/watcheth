@@ -4,7 +4,7 @@ A CLI tool for monitoring multiple Ethereum beacon nodes in real-time.
 
 ## Overview
 
-WatchETH provides a terminal-based dashboard that displays real-time statistics from multiple Ethereum consensus clients (Prysm, Lighthouse, Teku, Nimbus). It shows important beacon chain information including:
+WatchETH provides a terminal-based dashboard that displays real-time statistics from multiple Ethereum clients including consensus clients (Prysm, Lighthouse, Teku, Nimbus), execution clients, and validator clients (Vouch). It shows important information including:
 
 - Current slot and head slot
 - Current epoch and finality checkpoints
@@ -14,11 +14,15 @@ WatchETH provides a terminal-based dashboard that displays real-time statistics 
 
 ## Features
 
-- **Multi-client Support**: Monitor Prysm, Lighthouse, Teku, and Nimbus nodes simultaneously
-- **Real-time Updates**: Automatically refreshes beacon chain statistics
+- **Multi-client Support**: Monitor consensus, execution, and validator clients simultaneously
+  - Consensus: Prysm, Lighthouse, Teku, Nimbus
+  - Execution: Geth, Nethermind, Besu, Erigon
+  - Validator: Vouch (multi-node validator client)
+- **Real-time Updates**: Automatically refreshes client statistics
 - **Terminal UI**: Clean, organized display using tview
 - **Concurrent Monitoring**: Efficiently polls multiple nodes in parallel
 - **Configuration**: Flexible YAML configuration for node endpoints
+- **Vouch Metrics**: Monitor validator performance including attestations, proposals, and sync committees
 
 ## Installation
 
@@ -54,7 +58,7 @@ watcheth list
 
 ### Debug Mode
 
-Test API endpoints on a consensus or execution client:
+Test API endpoints on consensus, execution, or validator clients:
 
 ```bash
 # Debug consensus client
@@ -63,11 +67,14 @@ watcheth debug http://localhost:5052
 # Debug execution client  
 watcheth debug http://localhost:8545 --type execution
 
+# Debug Vouch validator client
+watcheth debug http://localhost:8081 --type vouch
+
 # Save debug output to file
 watcheth debug http://localhost:5052 --output debug-results.txt
 ```
 
-The debug command tests various API endpoints and shows their availability and response. Use `--output` or `-o` to save the results to a file while still displaying them on the terminal.
+The debug command tests various API endpoints and shows their availability and response. For Vouch, it parses and displays key Prometheus metrics. Use `--output` or `-o` to save the results to a file while still displaying them on the terminal.
 
 ### Custom Configuration
 
@@ -75,18 +82,23 @@ Create a `watcheth.yaml` file:
 
 ```yaml
 clients:
+  # Consensus clients
   - name: "Prysm Node 1"
-    type: "prysm"
+    type: consensus
     endpoint: "http://localhost:3500"
   - name: "Lighthouse Node 1"
-    type: "lighthouse"
+    type: consensus
     endpoint: "http://localhost:5052"
-  - name: "Teku Node 1"
-    type: "teku"
-    endpoint: "http://localhost:5051"
-  - name: "Nimbus Node 1"
-    type: "nimbus"
-    endpoint: "http://localhost:5053"
+    
+  # Execution clients
+  - name: "Geth"
+    type: execution
+    endpoint: "http://localhost:8545"
+    
+  # Validator clients
+  - name: "Vouch"
+    type: vouch
+    endpoint: "http://localhost:8081"  # Prometheus metrics endpoint
 
 refresh_interval: 2s
 ```

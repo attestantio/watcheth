@@ -11,6 +11,7 @@ import (
 	"github.com/watcheth/watcheth/internal/consensus"
 	"github.com/watcheth/watcheth/internal/execution"
 	"github.com/watcheth/watcheth/internal/logger"
+	"github.com/watcheth/watcheth/internal/validator/vouch"
 )
 
 var (
@@ -57,12 +58,15 @@ func runList(cmd *cobra.Command, args []string) {
 	// Separate clients by type
 	var consensusClients []config.ClientConfig
 	var executionClients []config.ClientConfig
+	var validatorClients []config.ClientConfig
 
 	for _, clientCfg := range cfg.Clients {
 		if clientCfg.IsConsensus() {
 			consensusClients = append(consensusClients, clientCfg)
 		} else if clientCfg.IsExecution() {
 			executionClients = append(executionClients, clientCfg)
+		} else if clientCfg.IsValidator() {
+			validatorClients = append(validatorClients, clientCfg)
 		}
 	}
 
@@ -79,6 +83,14 @@ func runList(cmd *cobra.Command, args []string) {
 		fmt.Printf("=== Execution Clients (%d) ===\n\n", len(executionClients))
 		for _, clientCfg := range executionClients {
 			checkExecutionClient(clientCfg)
+		}
+	}
+
+	// Check validator clients
+	if len(validatorClients) > 0 {
+		fmt.Printf("=== Validator Clients (%d) ===\n\n", len(validatorClients))
+		for _, clientCfg := range validatorClients {
+			checkValidatorClient(clientCfg)
 		}
 	}
 }
@@ -172,6 +184,71 @@ func checkExecutionClient(clientCfg config.ClientConfig) {
 		fmt.Printf("  Time Since Last Block: %s\n", formatDuration(info.BlockTime))
 	}
 	fmt.Println()
+}
+
+func checkValidatorClient(clientCfg config.ClientConfig) {
+	fmt.Printf("Checking %s at %s...\n", clientCfg.Name, clientCfg.Endpoint)
+
+	// Special handling for different validator types
+	if clientCfg.Type == "vouch" {
+		client := vouch.NewVouchClient(clientCfg.Name, clientCfg.Endpoint)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		info, err := client.GetNodeInfo(ctx)
+		cancel()
+
+		if err != nil {
+			fmt.Printf("  ❌ Error: %v\n\n", err)
+			return
+		}
+
+		if !info.IsConnected {
+			fmt.Printf("  ❌ Not connected: %v\n\n", info.LastError)
+			return
+		}
+
+		fmt.Printf("  ✅ Connected\n")
+		fmt.Printf("  Service Ready: %v\n", info.Ready)
+
+		// Attestation performance
+		fmt.Printf("\n  Attestation Performance:\n")
+		if info.AttestationMarkSeconds > 0 {
+			fmt.Printf("    Mark Time: %.2fs into slot\n", info.AttestationMarkSeconds)
+		}
+		if info.AttestationSuccessRate > 0 {
+			fmt.Printf("    Success Rate: %.1f%%\n", info.AttestationSuccessRate)
+		}
+
+		// Block proposal performance
+		if info.BlockProposalMarkSeconds > 0 || info.BlockProposalSuccessRate > 0 {
+			fmt.Printf("\n  Block Proposal Performance:\n")
+			if info.BlockProposalMarkSeconds > 0 {
+				fmt.Printf("    Mark Time: %.2fs into slot\n", info.BlockProposalMarkSeconds)
+			}
+			if info.BlockProposalSuccessRate > 0 {
+				fmt.Printf("    Success Rate: %.1f%%\n", info.BlockProposalSuccessRate)
+			}
+		}
+
+		// Network health
+		fmt.Printf("\n  Network Health:\n")
+		if info.BeaconNodeResponseTime > 0 {
+			fmt.Printf("    Beacon Node Response: %.0fms\n", info.BeaconNodeResponseTime)
+		}
+
+		// MEV/Builder metrics
+		if info.BestBidRelayCount > 0 || info.BlocksFromRelay > 0 {
+			fmt.Printf("\n  MEV/Builder:\n")
+			if info.BestBidRelayCount > 0 {
+				fmt.Printf("    Best Bid Relay Count: %d\n", info.BestBidRelayCount)
+			}
+			if info.BlocksFromRelay > 0 {
+				fmt.Printf("    Blocks from Relay: %d\n", info.BlocksFromRelay)
+			}
+		}
+
+		fmt.Println()
+	}
 }
 
 func formatDuration(duration time.Duration) string {

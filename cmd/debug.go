@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -29,7 +29,7 @@ var debugCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(debugCmd)
-	debugCmd.Flags().StringVarP(&clientType, "type", "t", "consensus", "Client type (consensus or execution)")
+	debugCmd.Flags().StringVarP(&clientType, "type", "t", "consensus", "Client type (consensus, execution, or vouch)")
 	debugCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file path to save debug results")
 }
 
@@ -54,6 +54,8 @@ func runDebug(cmd *cobra.Command, args []string) {
 
 	if clientType == "execution" {
 		debugExecutionClient(endpoint, output)
+	} else if clientType == "vouch" {
+		debugVouchClient(endpoint, output)
 	} else {
 		debugConsensusClient(endpoint, output)
 	}
@@ -149,16 +151,16 @@ func debugExecutionClient(endpoint string, w io.Writer) {
 			"id":      1,
 		}
 
-		jsonData, err := json.Marshal(jsonReq)
+		reqBody, err := json.Marshal(jsonReq)
 		if err != nil {
-			fmt.Fprintf(w, " ❌ Error marshaling request: %v\n", err)
+			fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
 			continue
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(jsonData))
+		req, err := http.NewRequestWithContext(ctx, "POST", endpoint, strings.NewReader(string(reqBody)))
 		if err != nil {
 			fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
 			continue
@@ -195,5 +197,55 @@ func debugExecutionClient(endpoint string, w io.Writer) {
 			fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
 			fmt.Fprintf(w, "   Response: %s\n", string(body))
 		}
+	}
+}
+
+func debugVouchClient(endpoint string, w io.Writer) {
+	fmt.Fprintf(w, "Testing Vouch validator client at: %s\n\n", endpoint)
+
+	// Determine the metrics URL - don't append /metrics if it's already in the endpoint
+	metricsURL := endpoint
+	if !strings.HasSuffix(endpoint, "/metrics") {
+		metricsURL = endpoint + "/metrics"
+	}
+
+	// Test Prometheus metrics endpoint
+	fmt.Fprintf(w, "Testing %s...", metricsURL)
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", metricsURL, nil)
+	if err != nil {
+		fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
+		return
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Fprintf(w, " ❌ Error: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
+		return
+	}
+
+	if resp.StatusCode == http.StatusOK {
+		fmt.Fprintf(w, " ✅ OK (200)\n\n")
+
+		// Just print the full raw response
+		fmt.Fprintf(w, "=== Full Response ===\n")
+		fmt.Fprintf(w, "%s\n", string(body))
+	} else {
+		fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
+		fmt.Fprintf(w, "   Response: %s\n", string(body))
 	}
 }

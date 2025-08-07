@@ -12,7 +12,7 @@ type Config struct {
 
 type ClientConfig struct {
 	Name     string `mapstructure:"name"`
-	Type     string `mapstructure:"type"` // "consensus" or "execution"
+	Type     string `mapstructure:"type"` // "consensus", "execution", or "validator"
 	Endpoint string `mapstructure:"endpoint"`
 	LogPath  string `mapstructure:"log_path"`
 }
@@ -51,4 +51,10 @@ func (cc *ClientConfig) IsConsensus() bool {
 // IsExecution returns true if this is an execution client
 func (cc *ClientConfig) IsExecution() bool {
 	return cc.GetType() == "execution"
+}
+
+// IsValidator returns true if this is a validator client
+func (cc *ClientConfig) IsValidator() bool {
+	t := cc.GetType()
+	return t == "validator" || t == "vouch"
 }

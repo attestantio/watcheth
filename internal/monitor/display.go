@@ -12,6 +12,7 @@ import (
 	"github.com/watcheth/watcheth/internal/config"
 	"github.com/watcheth/watcheth/internal/consensus"
 	"github.com/watcheth/watcheth/internal/execution"
+	"github.com/watcheth/watcheth/internal/validator"
 )
 
 // Status symbols for visual indicators
@@ -34,6 +35,7 @@ type Display struct {
 	app               *tview.Application
 	consensusTable    *tview.Table
 	executionTable    *tview.Table
+	validatorTable    *tview.Table
 	monitor           *Monitor
 	help              *tview.TextView
 	refreshInterval   time.Duration
@@ -57,6 +59,7 @@ func NewDisplay(monitor *Monitor) *Display {
 		app:               tview.NewApplication(),
 		consensusTable:    tview.NewTable(),
 		executionTable:    tview.NewTable(),
+		validatorTable:    tview.NewTable(),
 		monitor:           monitor,
 		help:              tview.NewTextView(),
 		title:             tview.NewTextView(),
@@ -113,6 +116,12 @@ func (d *Display) setupTables() {
 		SetFixed(1, 0).
 		SetSelectable(false, false)
 
+	// Setup validator table
+	d.validatorTable.Clear()
+	d.validatorTable.SetBorders(true).
+		SetFixed(1, 0).
+		SetSelectable(false, false)
+
 	// Set up header rows
 	for col, header := range d.getConsensusHeaders() {
 		paddedHeader := " " + header + " "
@@ -130,6 +139,15 @@ func (d *Display) setupTables() {
 			SetAlign(tview.AlignLeft).
 			SetSelectable(false)
 		d.executionTable.SetCell(0, col, cell)
+	}
+
+	for col, header := range d.getValidatorHeaders() {
+		paddedHeader := " " + header + " "
+		cell := tview.NewTableCell(paddedHeader).
+			SetTextColor(tcell.ColorYellow).
+			SetAlign(tview.AlignLeft).
+			SetSelectable(false)
+		d.validatorTable.SetCell(0, col, cell)
 	}
 }
 
@@ -166,6 +184,19 @@ func (d *Display) getExecutionHeaders() []string {
 		headers = append(headers, "Version")
 	}
 	return headers
+}
+
+func (d *Display) getValidatorHeaders() []string {
+	return []string{
+		"Client",
+		"Port",
+		"Status",
+		"Ready",
+		"Attestations",
+		"Proposals",
+		"Client Latency",
+		"Relays",
+	}
 }
 
 func (d *Display) setupLayout() {
@@ -208,10 +239,24 @@ func (d *Display) updateLayout() {
 		AddItem(tview.NewTextView().SetText("[Execution Clients]").SetTextColor(tcell.ColorGreen), 1, 0, false).
 		AddItem(d.executionTable, 0, 1, false)
 
+	// Validator clients section
+	validatorSection := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(nil, 1, 0, false). // Spacer
+		AddItem(tview.NewTextView().SetText("[Validator Clients]").SetTextColor(tcell.ColorGreen), 1, 0, false).
+		AddItem(d.validatorTable, 0, 1, false)
+
+	// Check if we have validator clients
+	hasValidators := len(d.monitor.GetValidatorInfos()) > 0
+
 	tablesArea := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(consensusSection, 0, 1, true).
 		AddItem(executionSection, 0, 1, false)
+
+	if hasValidators {
+		tablesArea.AddItem(validatorSection, 0, 1, false)
+	}
 
 	if d.showLogs {
 		// Split view: tables and logs
@@ -310,7 +355,7 @@ func (d *Display) updateLoop() {
 
 func (d *Display) updateTables(update NodeUpdate) {
 	// Validate inputs
-	if d == nil || d.app == nil || d.consensusTable == nil || d.executionTable == nil {
+	if d == nil || d.app == nil || d.consensusTable == nil || d.executionTable == nil || d.validatorTable == nil {
 		return
 	}
 
@@ -320,6 +365,14 @@ func (d *Display) updateTables(update NodeUpdate) {
 
 		// Update execution table
 		d.updateExecutionTable(update.ExecutionInfos)
+
+		// Update validator table
+		d.updateValidatorTable(update.ValidatorInfos)
+
+		// Update layout if validator clients were added/removed
+		if len(update.ValidatorInfos) > 0 {
+			d.updateLayout()
+		}
 	})
 }
 
@@ -604,12 +657,201 @@ func (d *Display) updateExecutionTable(infos []*execution.ExecutionNodeInfo) {
 	}
 }
 
+func (d *Display) updateValidatorTable(infos []*validator.ValidatorNodeInfo) {
+	if infos == nil {
+		infos = []*validator.ValidatorNodeInfo{}
+	}
+
+	// Ensure we have enough rows in the table
+	currentRows := d.validatorTable.GetRowCount()
+	neededRows := len(infos) + 1 // +1 for header
+
+	// Add rows if needed
+	columnCount := len(d.getValidatorHeaders())
+	for i := currentRows; i < neededRows; i++ {
+		for j := 0; j < columnCount; j++ {
+			d.validatorTable.SetCell(i, j, tview.NewTableCell(""))
+		}
+	}
+
+	// Update table rows
+	for row, info := range infos {
+		if info == nil {
+			continue
+		}
+
+		tableRow := row + 1 // +1 for header
+		col := 0
+
+		// Client name
+		d.setValidatorCell(tableRow, col, info.Name, tcell.ColorWhite)
+		col++
+
+		// Port
+		port := parsePortFromEndpoint(info.Endpoint)
+		d.setValidatorCell(tableRow, col, port, tcell.ColorWhite)
+		col++
+
+		// Status
+		var status string
+		var statusColor tcell.Color
+		if info.IsConnected {
+			status = "● Connected"
+			statusColor = tcell.ColorGreen
+		} else {
+			status = "○ Offline"
+			statusColor = tcell.ColorRed
+		}
+		d.setValidatorCell(tableRow, col, status, statusColor)
+		col++
+
+		// Ready status
+		var readyText string
+		var readyColor tcell.Color
+		if info.IsConnected {
+			if info.Ready {
+				readyText = "Yes"
+				readyColor = tcell.ColorGreen
+			} else {
+				readyText = "No"
+				readyColor = tcell.ColorRed
+			}
+		} else {
+			readyText = "-"
+			readyColor = tcell.ColorGray
+		}
+		d.setValidatorCell(tableRow, col, readyText, readyColor)
+		col++
+
+		// Attestations (combined time and rate)
+		var attText string
+		var attColor tcell.Color
+		if info.IsConnected {
+			parts := []string{}
+			if info.AttestationMarkSeconds > 0 {
+				parts = append(parts, fmt.Sprintf("%.1fs", info.AttestationMarkSeconds))
+			}
+			if info.AttestationSuccessRate > 0 {
+				parts = append(parts, fmt.Sprintf("%.1f%%", info.AttestationSuccessRate))
+			}
+			if len(parts) > 0 {
+				attText = strings.Join(parts, " / ")
+				// Color based on success rate (more important than timing)
+				if info.AttestationSuccessRate >= 95 {
+					attColor = tcell.ColorGreen
+				} else if info.AttestationSuccessRate >= 85 {
+					attColor = tcell.ColorYellow
+				} else if info.AttestationSuccessRate > 0 {
+					attColor = tcell.ColorRed
+				} else {
+					// If no success rate, color based on time
+					if info.AttestationMarkSeconds <= 4 {
+						attColor = tcell.ColorGreen
+					} else if info.AttestationMarkSeconds <= 6 {
+						attColor = tcell.ColorYellow
+					} else {
+						attColor = tcell.ColorRed
+					}
+				}
+			} else {
+				attText = "-"
+				attColor = tcell.ColorGray
+			}
+		} else {
+			attText = "-"
+			attColor = tcell.ColorGray
+		}
+		d.setValidatorCell(tableRow, col, attText, attColor)
+		col++
+
+		// Proposals (combined time and rate)
+		var propText string
+		var propColor tcell.Color
+		if info.IsConnected {
+			parts := []string{}
+			if info.BlockProposalMarkSeconds > 0 {
+				parts = append(parts, fmt.Sprintf("%.1fs", info.BlockProposalMarkSeconds))
+			}
+			if info.BlockProposalSuccessRate > 0 {
+				parts = append(parts, fmt.Sprintf("%.0f%%", info.BlockProposalSuccessRate))
+			}
+			if len(parts) > 0 {
+				propText = strings.Join(parts, " / ")
+				// Color based on success rate (more important than timing)
+				if info.BlockProposalSuccessRate >= 95 {
+					propColor = tcell.ColorGreen
+				} else if info.BlockProposalSuccessRate >= 85 {
+					propColor = tcell.ColorYellow
+				} else if info.BlockProposalSuccessRate > 0 {
+					propColor = tcell.ColorRed
+				} else {
+					// If no success rate, color based on time
+					if info.BlockProposalMarkSeconds <= 2 {
+						propColor = tcell.ColorGreen
+					} else if info.BlockProposalMarkSeconds <= 3 {
+						propColor = tcell.ColorYellow
+					} else {
+						propColor = tcell.ColorRed
+					}
+				}
+			} else {
+				propText = "-"
+				propColor = tcell.ColorGray
+			}
+		} else {
+			propText = "-"
+			propColor = tcell.ColorGray
+		}
+		d.setValidatorCell(tableRow, col, propText, propColor)
+		col++
+
+		// Client Latency
+		var clientLatencyText string
+		var clientLatencyColor tcell.Color
+		if info.IsConnected && info.BeaconNodeResponseTime > 0 {
+			clientLatencyText = fmt.Sprintf("%.0fms", info.BeaconNodeResponseTime)
+			if info.BeaconNodeResponseTime <= 100 {
+				clientLatencyColor = tcell.ColorGreen
+			} else if info.BeaconNodeResponseTime <= 250 {
+				clientLatencyColor = tcell.ColorYellow
+			} else {
+				clientLatencyColor = tcell.ColorRed
+			}
+		} else {
+			clientLatencyText = "-"
+			clientLatencyColor = tcell.ColorGray
+		}
+		d.setValidatorCell(tableRow, col, clientLatencyText, clientLatencyColor)
+		col++
+
+		// Relay Info (Best Bid Count / Blocks from Relay)
+		var relayText string
+		if info.IsConnected {
+			if info.BlocksFromRelay > 0 {
+				relayText = fmt.Sprintf("%d/%d", info.BestBidRelayCount, info.BlocksFromRelay)
+			} else if info.BestBidRelayCount > 0 {
+				relayText = fmt.Sprintf("%d", info.BestBidRelayCount)
+			} else {
+				relayText = "-"
+			}
+		} else {
+			relayText = "-"
+		}
+		d.setValidatorCell(tableRow, col, relayText, tcell.ColorWhite)
+		col++
+	}
+}
+
 func (d *Display) setConsensusCell(row, col int, text string, color tcell.Color) {
 	d.setCell(d.consensusTable, row, col, text, color)
 }
 
 func (d *Display) setExecutionCell(row, col int, text string, color tcell.Color) {
 	d.setCell(d.executionTable, row, col, text, color)
+}
+
+func (d *Display) setValidatorCell(row, col int, text string, color tcell.Color) {
+	d.setCell(d.validatorTable, row, col, text, color)
 }
 
 func (d *Display) setCell(table *tview.Table, row, col int, text string, color tcell.Color) {

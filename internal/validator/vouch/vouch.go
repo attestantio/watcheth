@@ -1,0 +1,202 @@
+package vouch
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
+	"github.com/watcheth/watcheth/internal/logger"
+	"github.com/watcheth/watcheth/internal/validator"
+)
+
+type VouchClient struct {
+	name       string
+	endpoint   string
+	httpClient *http.Client
+}
+
+func NewVouchClient(name, endpoint string) *VouchClient {
+	return &VouchClient{
+		name:     name,
+		endpoint: endpoint,
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+	}
+}
+
+func (c *VouchClient) GetNodeInfo(ctx context.Context) (*validator.ValidatorNodeInfo, error) {
+	info := &validator.ValidatorNodeInfo{
+		Name:       c.name,
+		Endpoint:   c.endpoint,
+		LastUpdate: time.Now(),
+	}
+
+	metrics, err := c.fetchMetrics(ctx)
+	if err != nil {
+		info.IsConnected = false
+		info.LastError = err
+		logger.Error("[%s]: Failed to fetch metrics: %v", c.name, err)
+		return info, nil
+	}
+
+	info.IsConnected = true
+	c.parseMetrics(metrics, info)
+
+	logger.Info("[%s]: Successfully connected and retrieved validator metrics", c.name)
+	return info, nil
+}
+
+func (c *VouchClient) fetchMetrics(ctx context.Context) (map[string]*io_prometheus_client.MetricFamily, error) {
+	// Don't append /metrics if it's already in the endpoint
+	url := c.endpoint
+	if !strings.HasSuffix(c.endpoint, "/metrics") {
+		url = fmt.Sprintf("%s/metrics", c.endpoint)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d from metrics endpoint", resp.StatusCode)
+	}
+
+	return c.parsePrometheusResponse(resp.Body)
+}
+
+func (c *VouchClient) parsePrometheusResponse(r io.Reader) (map[string]*io_prometheus_client.MetricFamily, error) {
+	parser := expfmt.TextParser{}
+	metricFamilies, err := parser.TextToMetricFamilies(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse metrics: %w", err)
+	}
+	return metricFamilies, nil
+}
+
+func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_client.MetricFamily, info *validator.ValidatorNodeInfo) {
+	// Service readiness
+	if mf, ok := metricFamilies["vouch_ready"]; ok && len(mf.Metric) > 0 {
+		if mf.Metric[0].Gauge != nil && mf.Metric[0].Gauge.Value != nil {
+			info.Ready = *mf.Metric[0].Gauge.Value > 0
+		}
+	}
+
+	// Attestation mark seconds (average from histogram)
+	if mf, ok := metricFamilies["vouch_attestation_mark_seconds"]; ok {
+		if sum, count := getHistogramSumAndCount(mf); count > 0 {
+			info.AttestationMarkSeconds = sum / count
+		}
+	}
+
+	// Attestation success rate
+	var attestationSuccess, attestationFailed uint64
+	if mf, ok := metricFamilies["vouch_attestation_process_requests_total"]; ok {
+		for _, m := range mf.Metric {
+			result := getLabelValue(m.Label, "result")
+			if m.Counter != nil && m.Counter.Value != nil {
+				if result == "succeeded" {
+					attestationSuccess = uint64(*m.Counter.Value)
+				} else if result == "failed" {
+					attestationFailed = uint64(*m.Counter.Value)
+				}
+			}
+		}
+	}
+	total := attestationSuccess + attestationFailed
+	if total > 0 {
+		info.AttestationSuccessRate = float64(attestationSuccess) / float64(total) * 100
+	}
+
+	// Block proposal mark seconds
+	if mf, ok := metricFamilies["vouch_beaconblockproposal_mark_seconds"]; ok {
+		if sum, count := getHistogramSumAndCount(mf); count > 0 {
+			info.BlockProposalMarkSeconds = sum / count
+		}
+	}
+
+	// Block proposal success rate
+	var proposalSuccess, proposalFailed uint64
+	if mf, ok := metricFamilies["vouch_beaconblockproposal_process_requests_total"]; ok {
+		for _, m := range mf.Metric {
+			result := getLabelValue(m.Label, "result")
+			if m.Counter != nil && m.Counter.Value != nil {
+				if result == "succeeded" {
+					proposalSuccess = uint64(*m.Counter.Value)
+				} else if result == "failed" {
+					proposalFailed = uint64(*m.Counter.Value)
+				}
+			}
+		}
+	}
+	proposalTotal := proposalSuccess + proposalFailed
+	if proposalTotal > 0 {
+		info.BlockProposalSuccessRate = float64(proposalSuccess) / float64(proposalTotal) * 100
+	}
+
+	// Beacon node response time (average from histogram, convert to milliseconds)
+	if mf, ok := metricFamilies["vouch_client_operation_duration_seconds"]; ok {
+		if sum, count := getHistogramSumAndCount(mf); count > 0 {
+			info.BeaconNodeResponseTime = (sum / count) * 1000
+		}
+	}
+
+	// Best bid relay count
+	if mf, ok := metricFamilies["vouch_beaconblockproposer_best_bid_relays"]; ok && len(mf.Metric) > 0 {
+		if mf.Metric[0].Gauge != nil && mf.Metric[0].Gauge.Value != nil {
+			info.BestBidRelayCount = uint64(*mf.Metric[0].Gauge.Value)
+		}
+	}
+
+	// Blocks from relay
+	if mf, ok := metricFamilies["vouch_beaconblockproposal_process_blocks_total"]; ok {
+		for _, m := range mf.Metric {
+			method := getLabelValue(m.Label, "method")
+			if method == "relay" && m.Counter != nil && m.Counter.Value != nil {
+				info.BlocksFromRelay = uint64(*m.Counter.Value)
+			}
+		}
+	}
+}
+
+// Helper functions
+
+func getLabelValue(labels []*io_prometheus_client.LabelPair, name string) string {
+	for _, label := range labels {
+		if label.Name != nil && *label.Name == name && label.Value != nil {
+			return *label.Value
+		}
+	}
+	return ""
+}
+
+func getHistogramSumAndCount(mf *io_prometheus_client.MetricFamily) (sum float64, count float64) {
+	if mf == nil || len(mf.Metric) == 0 {
+		return 0, 0
+	}
+
+	for _, m := range mf.Metric {
+		if m.Histogram != nil {
+			if m.Histogram.SampleSum != nil {
+				sum += *m.Histogram.SampleSum
+			}
+			if m.Histogram.SampleCount != nil {
+				count += float64(*m.Histogram.SampleCount)
+			}
+		}
+	}
+
+	return sum, count
+}

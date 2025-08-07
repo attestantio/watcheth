@@ -14,6 +14,7 @@ import (
 	"github.com/watcheth/watcheth/internal/execution"
 	"github.com/watcheth/watcheth/internal/logger"
 	"github.com/watcheth/watcheth/internal/monitor"
+	"github.com/watcheth/watcheth/internal/validator/vouch"
 )
 
 var monitorCmd = &cobra.Command{
@@ -60,6 +61,12 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		} else if clientCfg.IsExecution() {
 			client := execution.NewClient(clientCfg.Name, clientCfg.Endpoint)
 			mon.AddExecutionClient(client)
+		} else if clientCfg.IsValidator() {
+			// Special handling for different validator types
+			if clientCfg.Type == "vouch" {
+				client := vouch.NewVouchClient(clientCfg.Name, clientCfg.Endpoint)
+				mon.AddValidatorClient(client)
+			}
 		}
 	}
 
