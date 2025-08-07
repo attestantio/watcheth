@@ -177,6 +177,20 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 			info.RelayAuctionCount = uint64(count)
 		}
 	}
+
+	// Relay validator registrations
+	if mf, ok := metricFamilies["vouch_relay_validator_registrations_total"]; ok {
+		for _, m := range mf.Metric {
+			result := getLabelValue(m.Label, "result")
+			if m.Counter != nil && m.Counter.Value != nil {
+				if result == "succeeded" {
+					info.RelayRegistrationSucceeded = uint64(*m.Counter.Value)
+				} else if result == "failed" {
+					info.RelayRegistrationFailed = uint64(*m.Counter.Value)
+				}
+			}
+		}
+	}
 }
 
 // Helper functions

@@ -195,7 +195,7 @@ func (d *Display) getValidatorHeaders() []string {
 		"Attest Perf",
 		"Propose Perf",
 		"Client Latency",
-		"Relay Auctions",
+		"Relay Regs",
 	}
 }
 
@@ -834,26 +834,28 @@ func (d *Display) updateValidatorTable(infos []*validator.ValidatorNodeInfo) {
 		d.setValidatorCell(tableRow, col, clientLatencyText, clientLatencyColor)
 		col++
 
-		// Relay Auctions - Show count and average time
+		// Relay Registrations - Show succeeded/total
 		var relayText string
 		var relayColor tcell.Color
 		if info.IsConnected {
-			if info.RelayAuctionCount > 0 {
-				// Show count and average time: "142 (1.2s)"
-				relayText = fmt.Sprintf("%d (%.1fs)", info.RelayAuctionCount, info.RelayAuctionDuration)
+			total := info.RelayRegistrationSucceeded + info.RelayRegistrationFailed
+			if total > 0 {
+				// Show succeeded/total: "1410/1410"
+				relayText = fmt.Sprintf("%d/%d", info.RelayRegistrationSucceeded, total)
 
-				// Color based on auction speed
-				if info.RelayAuctionDuration > 4.0 {
-					relayColor = tcell.ColorRed // Very slow
-				} else if info.RelayAuctionDuration > 2.0 {
-					relayColor = tcell.ColorYellow // Moderate
+				// Color based on success rate
+				successRate := float64(info.RelayRegistrationSucceeded) / float64(total)
+				if successRate >= 0.99 {
+					relayColor = tcell.ColorGreen // 99%+ successful
+				} else if successRate >= 0.90 {
+					relayColor = tcell.ColorYellow // 90-99% successful
 				} else {
-					relayColor = tcell.ColorGreen // Good performance
+					relayColor = tcell.ColorRed // Less than 90% successful
 				}
 			} else {
-				// No relay auctions
-				relayText = "0"
-				relayColor = tcell.ColorRed
+				// No relay registrations
+				relayText = "0/0"
+				relayColor = tcell.ColorGray
 			}
 		} else {
 			relayText = "-"
