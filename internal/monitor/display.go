@@ -105,19 +105,24 @@ func (d *Display) SetupLogPaths(clientConfigs []config.ClientConfig) {
 func (d *Display) setupTables() {
 	// Setup consensus table
 	d.consensusTable.Clear()
-	d.consensusTable.SetBorders(true).
+	d.consensusTable.SetBorders(false).
 		SetFixed(1, 0).
 		SetSelectable(false, false)
 
 	// Setup execution table
 	d.executionTable.Clear()
-	d.executionTable.SetBorders(true).
+	d.executionTable.SetBorders(false).
 		SetFixed(1, 0).
 		SetSelectable(false, false)
 
 	// Set up header rows
 	for col, header := range d.getConsensusHeaders() {
-		paddedHeader := " " + header + " "
+		var paddedHeader string
+		if col == 0 {
+			paddedHeader = "  " + header + " "
+		} else {
+			paddedHeader = " " + header + " "
+		}
 		cell := tview.NewTableCell(paddedHeader).
 			SetTextColor(tcell.ColorYellow).
 			SetAlign(tview.AlignLeft).
@@ -126,7 +131,12 @@ func (d *Display) setupTables() {
 	}
 
 	for col, header := range d.getExecutionHeaders() {
-		paddedHeader := " " + header + " "
+		var paddedHeader string
+		if col == 0 {
+			paddedHeader = "  " + header + " "
+		} else {
+			paddedHeader = " " + header + " "
+		}
 		cell := tview.NewTableCell(paddedHeader).
 			SetTextColor(tcell.ColorYellow).
 			SetAlign(tview.AlignLeft).
@@ -140,8 +150,6 @@ func (d *Display) getConsensusHeaders() []string {
 		"Client",
 		"Port",
 		"Status",
-		"Syncing",
-		"Optimistic",
 		"EL Offline",
 		"Slot",
 		"Peers",
@@ -218,7 +226,7 @@ func (d *Display) updateLayout() {
 	executionSection := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(nil, 1, 0, false). // Spacer
-		AddItem(tview.NewTextView().SetText("  [Execution Clients]").SetTextColor(tcell.ColorGreen), 1, 0, false).
+		AddItem(tview.NewTextView().SetText("  Execution Clients").SetTextColor(tcell.ColorGreen), 1, 0, false).
 		AddItem(d.executionTable, 0, 1, false)
 
 	tablesArea := tview.NewFlex().
@@ -391,42 +399,6 @@ func (d *Display) updateConsensusTable(infos []*consensus.ConsensusNodeInfo) {
 		status, statusColor, statusSymbol := d.getStatusInfo(info)
 		statusText := fmt.Sprintf("%s %s", statusSymbol, status)
 		d.setConsensusCell(tableRow, col, statusText, statusColor)
-		col++
-
-		// Syncing status
-		var syncingText string
-		var syncingColor tcell.Color
-		if info.IsConnected {
-			if info.IsSyncing {
-				syncingText = "Yes"
-				syncingColor = tcell.ColorYellow
-			} else {
-				syncingText = "No"
-				syncingColor = tcell.ColorGreen
-			}
-		} else {
-			syncingText = "-"
-			syncingColor = tcell.ColorGray
-		}
-		d.setConsensusCell(tableRow, col, syncingText, syncingColor)
-		col++
-
-		// Optimistic status
-		var optimisticText string
-		var optimisticColor tcell.Color
-		if info.IsConnected {
-			if info.IsOptimistic {
-				optimisticText = "Yes"
-				optimisticColor = tcell.ColorYellow
-			} else {
-				optimisticText = "No"
-				optimisticColor = tcell.ColorGreen
-			}
-		} else {
-			optimisticText = "-"
-			optimisticColor = tcell.ColorGray
-		}
-		d.setConsensusCell(tableRow, col, optimisticText, optimisticColor)
 		col++
 
 		// EL Offline status
@@ -642,7 +614,13 @@ func (d *Display) setCell(table *tview.Table, row, col int, text string, color t
 	}
 
 	// Add padding to cell content
-	paddedText := " " + text + " "
+	// Add extra space at the beginning for first column to align with section headers
+	var paddedText string
+	if col == 0 {
+		paddedText = "  " + text + " "
+	} else {
+		paddedText = " " + text + " "
+	}
 
 	cell := table.GetCell(row, col)
 	if cell == nil {
@@ -725,9 +703,9 @@ func (d *Display) formatDuration(duration time.Duration) string {
 }
 
 func (d *Display) updateConsensusHeader() {
-	headerText := "  [Consensus Clients]"
+	headerText := "  Consensus Clients"
 	if d.nextSlotTime > 0 {
-		headerText = fmt.Sprintf("  [Consensus Clients] Next slot in: %s", d.formatDuration(d.nextSlotTime))
+		headerText = fmt.Sprintf("  Consensus Clients - Next slot in: %s", d.formatDuration(d.nextSlotTime))
 	}
 	d.consensusHeader.SetText(headerText)
 }
