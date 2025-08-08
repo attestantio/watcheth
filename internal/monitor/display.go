@@ -45,6 +45,7 @@ type Display struct {
 	animationFrame    int
 	logView           *tview.TextView
 	logReader         *LogReader
+	logUpdateTicker   *time.Ticker
 	showLogs          bool
 	selectedLogClient int
 	clientNames       []string
@@ -79,6 +80,13 @@ func (d *Display) Run() error {
 	d.setupTables()
 	d.setupLayout()
 
+	// Ensure log update ticker is cleaned up
+	defer func() {
+		if d.logUpdateTicker != nil {
+			d.logUpdateTicker.Stop()
+		}
+	}()
+
 	// Start countdown ticker
 	d.countdownTicker = time.NewTicker(time.Second)
 	go d.countdownLoop()
@@ -94,12 +102,18 @@ func (d *Display) Run() error {
 
 func (d *Display) SetupLogPaths(clientConfigs []config.ClientConfig) {
 	d.clientNames = make([]string, len(clientConfigs))
+
+	// Set up log paths for each client
 	for i, cfg := range clientConfigs {
 		d.clientNames[i] = cfg.Name
-		if cfg.LogPath != "" || cfg.GetLogPath() != "" {
-			d.logReader.SetLogPath(cfg.Name, cfg.GetLogPath())
+		if logPath := cfg.GetLogPath(); logPath != "" {
+			d.logReader.SetLogPath(cfg.Name, logPath)
 		}
 	}
+
+	// Start a ticker for frequent log updates (100ms for near real-time)
+	d.logUpdateTicker = time.NewTicker(100 * time.Millisecond)
+	go d.logUpdateLoop()
 }
 
 func (d *Display) setupTables() {
@@ -766,7 +780,7 @@ func (d *Display) updateLogView() {
 	// Update title with current client
 	d.logView.SetTitle(fmt.Sprintf(" Logs - %s ", clientName))
 
-	// Read logs for the selected client
+	// Always read fresh logs from file (no caching)
 	logs, _ := d.logReader.ReadLogs(clientName)
 
 	// Display logs as-is
@@ -809,6 +823,21 @@ func (d *Display) animationLoop() {
 			d.app.QueueUpdateDraw(func() {
 				d.animationFrame = (d.animationFrame + 1) % len(titleAnimationFrames)
 				d.title.SetText(titleAnimationFrames[d.animationFrame])
+			})
+		}
+	}
+}
+
+func (d *Display) logUpdateLoop() {
+	if d.logUpdateTicker == nil {
+		return
+	}
+
+	for range d.logUpdateTicker.C {
+		// Only update if logs are visible
+		if d.showLogs {
+			d.app.QueueUpdateDraw(func() {
+				d.updateLogView()
 			})
 		}
 	}
