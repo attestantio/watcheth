@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/watcheth/watcheth/internal/common"
 )
 
 type Client interface {
@@ -27,11 +29,9 @@ type executionClient struct {
 
 func NewClient(name, endpoint string) Client {
 	return &executionClient{
-		name:     name,
-		endpoint: strings.TrimRight(endpoint, "/"),
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		name:       name,
+		endpoint:   strings.TrimRight(endpoint, "/"),
+		httpClient: common.NewHTTPClient(30 * time.Second),
 	}
 }
 

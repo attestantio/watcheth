@@ -68,6 +68,7 @@ func (m *Monitor) Start(ctx context.Context) {
 	ticker := time.NewTicker(m.refreshInterval)
 	defer ticker.Stop()
 
+	// Initial update
 	m.updateAll(ctx)
 
 	for {
@@ -75,12 +76,21 @@ func (m *Monitor) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// Check context before updating
+			if ctx.Err() != nil {
+				return
+			}
 			m.updateAll(ctx)
 		}
 	}
 }
 
 func (m *Monitor) updateAll(ctx context.Context) {
+	// Check context before starting
+	if ctx.Err() != nil {
+		return
+	}
+
 	var wg sync.WaitGroup
 
 	// Update consensus clients
@@ -89,6 +99,11 @@ func (m *Monitor) updateAll(ctx context.Context) {
 		wg.Add(1)
 		go func(idx int, c consensus.Client) {
 			defer wg.Done()
+
+			// Check context before making request
+			if ctx.Err() != nil {
+				return
+			}
 
 			updateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
@@ -110,6 +125,11 @@ func (m *Monitor) updateAll(ctx context.Context) {
 		go func(idx int, c execution.Client) {
 			defer wg.Done()
 
+			// Check context before making request
+			if ctx.Err() != nil {
+				return
+			}
+
 			updateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
@@ -128,6 +148,11 @@ func (m *Monitor) updateAll(ctx context.Context) {
 		wg.Add(1)
 		go func(idx int, c validator.Client) {
 			defer wg.Done()
+
+			// Check context before making request
+			if ctx.Err() != nil {
+				return
+			}
 
 			updateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()

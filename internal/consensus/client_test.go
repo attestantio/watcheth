@@ -202,22 +202,7 @@ func TestConsensusClient_get(t *testing.T) {
 			errorMsg:    "HTTP 400",
 		},
 		{
-			name: "server error with retry success",
-			handler: func() http.HandlerFunc {
-				attempt := 0
-				return func(w http.ResponseWriter, r *http.Request) {
-					attempt++
-					if attempt < 3 {
-						w.WriteHeader(http.StatusInternalServerError)
-						return
-					}
-					testutil.MockHTTPResponse(http.StatusOK, `{"data": "test"}`)(w, r)
-				}
-			}(),
-			expectError: false,
-		},
-		{
-			name:        "all retries fail",
+			name:        "server error (no retry)",
 			handler:     testutil.MockHTTPResponse(http.StatusInternalServerError, "Server Error"),
 			expectError: true,
 			errorMsg:    "HTTP 500",

@@ -10,6 +10,7 @@ import (
 
 	"github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/watcheth/watcheth/internal/common"
 	"github.com/watcheth/watcheth/internal/logger"
 	"github.com/watcheth/watcheth/internal/validator"
 )
@@ -22,11 +23,9 @@ type VouchClient struct {
 
 func NewVouchClient(name, endpoint string) *VouchClient {
 	return &VouchClient{
-		name:     name,
-		endpoint: endpoint,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		name:       name,
+		endpoint:   endpoint,
+		httpClient: common.NewHTTPClient(10 * time.Second),
 	}
 }
 

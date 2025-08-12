@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/watcheth/watcheth/internal/common"
 	"github.com/watcheth/watcheth/internal/logger"
 )
 
@@ -25,11 +26,9 @@ type ConsensusClient struct {
 
 func NewConsensusClient(name, endpoint string) *ConsensusClient {
 	return &ConsensusClient{
-		name:     name,
-		endpoint: endpoint,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second, // Increased from 5s to 10s for better reliability
-		},
+		name:       name,
+		endpoint:   endpoint,
+		httpClient: common.NewHTTPClient(10 * time.Second),
 	}
 }
 
@@ -190,70 +189,34 @@ func (c *ConsensusClient) GetChainConfig(ctx context.Context) (*ChainConfig, err
 
 func (c *ConsensusClient) get(ctx context.Context, path string, v any) error {
 	url := fmt.Sprintf("%s%s", c.endpoint, path)
-	maxRetries := 3
-	baseDelay := 100 * time.Millisecond
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		// Add delay for retries (exponential backoff)
-		if attempt > 0 {
-			delay := baseDelay * time.Duration(1<<(attempt-1)) // 100ms, 200ms, 400ms
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(delay):
-			}
-		}
-
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-		if err != nil {
-			return fmt.Errorf("failed to create request: %w", err)
-		}
-
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			// Check if this is the last attempt
-			if attempt == maxRetries-1 {
-				return fmt.Errorf("failed to execute request after %d attempts: %w", maxRetries, err)
-			}
-			// Log and retry for network errors
-			logger.Debug("Request failed (attempt %d/%d) for %s: %v", attempt+1, maxRetries, url, err)
-			continue
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			// Don't retry for client errors (4xx), but retry for server errors (5xx)
-			if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-				return fmt.Errorf("HTTP %d for %s", resp.StatusCode, path)
-			}
-			if attempt == maxRetries-1 {
-				return fmt.Errorf("HTTP %d for %s after %d attempts", resp.StatusCode, path, maxRetries)
-			}
-			logger.Debug("Server error %d (attempt %d/%d) for %s", resp.StatusCode, attempt+1, maxRetries, url)
-			continue
-		}
-
-		// Read the body for debugging
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			if attempt == maxRetries-1 {
-				return fmt.Errorf("failed to read response body after %d attempts: %w", maxRetries, err)
-			}
-			continue
-		}
-
-		// Decode the response
-		if err := json.Unmarshal(body, v); err != nil {
-			// JSON parsing errors are not retryable
-			logger.Error("Failed to decode response from %s: %v", url, err)
-			logger.Error("Response body: %s", string(body))
-			return fmt.Errorf("failed to decode response: %w", err)
-		}
-
-		return nil // Success
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	return fmt.Errorf("exhausted all retry attempts for %s", url)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d for %s", resp.StatusCode, path)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if err := json.Unmarshal(body, v); err != nil {
+		logger.Error("Failed to decode response from %s: %v", url, err)
+		logger.Debug("Response body: %s", string(body))
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return nil
 }
 
 func (c *ConsensusClient) getGenesis(ctx context.Context) (*GenesisResponse, error) {
