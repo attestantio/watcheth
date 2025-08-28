@@ -4,25 +4,19 @@ A CLI tool for monitoring multiple Ethereum beacon nodes in real-time.
 
 ## Overview
 
-WatchETH provides a terminal-based dashboard that displays real-time statistics from multiple Ethereum clients including consensus clients (Prysm, Lighthouse, Teku, Nimbus), execution clients, and validator clients (Vouch). It shows important information including:
-
-- Current slot and head slot
-- Current epoch and finality checkpoints
-- Sync status and distance
-- Time until next slot/epoch
-- Connection status for each node
+WatchETH provides a terminal-based dashboard for monitoring Ethereum nodes in real-time. It displays key metrics from consensus clients, execution clients, and validator clients with automatic refresh and live log streaming.
 
 ## Features
 
 - **Multi-client Support**: Monitor consensus, execution, and validator clients simultaneously
   - Consensus: Prysm, Lighthouse, Teku, Nimbus
   - Execution: Geth, Nethermind, Besu, Erigon
-  - Validator: Vouch (multi-node validator client)
-- **Real-time Updates**: Automatically refreshes client statistics
-- **Terminal UI**: Clean, organized display using tview
-- **Concurrent Monitoring**: Efficiently polls multiple nodes in parallel
-- **Configuration**: Flexible YAML configuration for node endpoints
-- **Vouch Metrics**: Monitor validator performance including attestations, proposals, and sync committees
+  - Validator: Vouch
+- **Real-time Updates**: Automatic refresh with configurable intervals
+- **Live Log Viewer**: Real-time log streaming with 100ms refresh rate
+- **Clean Terminal UI**: Fixed-height sections with consistent formatting
+- **Validator Monitoring**: Track attestations, proposals, and sync committees for Vouch
+- **Flexible Configuration**: YAML-based configuration for all node endpoints
 
 ## Installation
 
@@ -74,7 +68,7 @@ watcheth debug http://localhost:8081 --type vouch
 watcheth debug http://localhost:5052 --output debug-results.txt
 ```
 
-The debug command tests various API endpoints and shows their availability and response. For Vouch, it parses and displays key Prometheus metrics. Use `--output` or `-o` to save the results to a file while still displaying them on the terminal.
+The debug command tests API endpoints and displays their responses. Use `--output` or `-o` to save results to a file.
 
 ### Custom Configuration
 
@@ -109,21 +103,14 @@ Run with custom configuration:
 watcheth --config /path/to/watcheth.yaml
 ```
 
-### Display Modes
-
-WatchETH now supports multiple display modes to fit different terminal sizes:
-
-- **Compact View** (default) - Shows essential metrics that fit in 80 columns
-- **Network View** - Focuses on network health metrics (peers, version, fork)
-- **Consensus View** - Shows epoch and finalization information
-
 ### Keyboard Shortcuts
 
 - `q` - Quit the application
-- `r` - Force refresh
-- `1` - Switch to Compact view
-- `2` - Switch to Network view  
-- `3` - Switch to Consensus view
+- `r` - Force refresh all data
+- `v` - Toggle version columns visibility
+- `L` - Toggle log viewer
+- `j/k` - Navigate between client logs (when logs visible)
+- `g/G` - Jump to first/last client logs
 
 ## Default Ports
 
@@ -140,7 +127,7 @@ WatchETH now supports multiple display modes to fit different terminal sizes:
 
 ## API Compatibility
 
-WatchETH uses the standard Ethereum Beacon API specification, which is supported by all major consensus clients. The tool connects to the REST API endpoints exposed by each client.
+WatchETH uses the standard Ethereum Beacon API and connects to REST endpoints exposed by consensus, execution, and validator clients.
 
 ## Development
 
@@ -148,12 +135,15 @@ WatchETH uses the standard Ethereum Beacon API specification, which is supported
 
 ```
 watcheth/
-├── cmd/              # CLI commands
+├── cmd/              # CLI commands (monitor, list, debug, version)
 ├── internal/
-│   ├── beacon/       # Beacon API client
-│   ├── monitor/      # Monitoring logic
-│   └── config/       # Configuration
-├── watcheth.yaml     # Default configuration
+│   ├── consensus/    # Consensus client implementations
+│   ├── execution/    # Execution client implementations
+│   ├── validator/    # Validator client support (Vouch)
+│   ├── monitor/      # Display and monitoring logic
+│   ├── config/       # Configuration management
+│   └── common/       # Shared HTTP utilities
+├── watcheth.yaml     # Example configuration
 └── main.go          # Entry point
 ```
 
