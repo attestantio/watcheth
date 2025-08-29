@@ -72,7 +72,7 @@ The debug command tests API endpoints and displays their responses. Use `--outpu
 
 ### Custom Configuration
 
-Create a `watcheth.yaml` file:
+Create a `watcheth.yml` file:
 
 ```yaml
 clients:
@@ -100,7 +100,7 @@ refresh_interval: 2s
 Run with custom configuration:
 
 ```bash
-watcheth --config /path/to/watcheth.yaml
+watcheth --config /path/to/watcheth.yml
 ```
 
 ### Keyboard Shortcuts
@@ -143,7 +143,7 @@ watcheth/
 │   ├── monitor/      # Display and monitoring logic
 │   ├── config/       # Configuration management
 │   └── common/       # Shared HTTP utilities
-├── watcheth.yaml     # Example configuration
+├── watcheth.yml      # Example configuration
 └── main.go          # Entry point
 ```
 
