@@ -15,10 +15,11 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "watcheth",
-	Short: "Monitor Ethereum consensus client stats in real-time",
-	Long: `WatchETH is a CLI tool that monitors multiple Ethereum consensus clients
-(Prysm, Lighthouse, Teku, Nimbus) and displays consensus layer statistics
-in real-time including current slot, head slot, epoch, and timing information.`,
+	Short: "Unified real-time monitoring for Ethereum clients",
+	Long: `watcheth is a CLI tool that provides unified monitoring for Ethereum infrastructure.
+It displays real-time metrics from consensus clients (Prysm, Lighthouse, Teku, Nimbus),
+execution clients, and validator clients in a single terminal dashboard - eliminating
+the need to juggle multiple endpoints and tools.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		monitorCmd.Run(cmd, args)
 	},

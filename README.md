@@ -1,10 +1,10 @@
-# WatchETH
+# watcheth
 
-A CLI tool for monitoring multiple Ethereum beacon nodes in real-time.
+Unified monitoring for Ethereum consensus, execution, and validator clients.
 
 ## Overview
 
-WatchETH provides a terminal-based dashboard for monitoring Ethereum nodes in real-time. It displays key metrics from consensus clients, execution clients, and validator clients with automatic refresh and live log streaming.
+watcheth provides a unified terminal dashboard for monitoring Ethereum infrastructure in real-time. It eliminates the need to juggle multiple endpoints and tools by displaying key metrics from consensus clients, execution clients, and validator clients in a single view with automatic refresh and live log streaming.
 
 ## Features
 
@@ -127,7 +127,7 @@ watcheth --config /path/to/watcheth.yaml
 
 ## API Compatibility
 
-WatchETH uses the standard Ethereum Beacon API and connects to REST endpoints exposed by consensus, execution, and validator clients.
+watcheth uses the standard Ethereum Beacon API and connects to REST endpoints exposed by consensus, execution, and validator clients.
 
 ## Development
 

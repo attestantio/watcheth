@@ -19,9 +19,10 @@ import (
 
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
-	Short: "Start monitoring clients",
-	Long:  `Start the real-time monitoring display for configured consensus and execution clients.`,
-	Run:   runMonitor,
+	Short: "Start unified client monitoring dashboard",
+	Long: `Start the real-time monitoring dashboard for all configured Ethereum clients.
+Provides a unified view of consensus, execution, and validator client metrics.`,
+	Run: runMonitor,
 }
 
 func init() {
