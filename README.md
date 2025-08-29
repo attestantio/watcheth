@@ -21,13 +21,13 @@ WatchETH provides a terminal-based dashboard for monitoring Ethereum nodes in re
 ## Installation
 
 ```bash
-go install github.com/watcheth/watcheth@latest
+go install github.com/attestantio/watcheth@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/watcheth/watcheth
+git clone https://github.com/attestantio/watcheth
 cd watcheth
 go build
 ```
