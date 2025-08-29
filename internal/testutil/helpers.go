@@ -14,6 +14,7 @@
 package testutil
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,9 @@ func MockHTTPResponse(statusCode int, body string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		io.WriteString(w, body)
+		if _, err := io.WriteString(w, body); err != nil {
+			panic(fmt.Sprintf("test handler write failed: %v", err))
+		}
 	}
 }
 
@@ -48,7 +51,9 @@ func MockHTTPEndpoints(endpoints map[string]struct {
 		if endpoint, ok := endpoints[r.URL.Path]; ok {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(endpoint.Status)
-			io.WriteString(w, endpoint.Body)
+			if _, err := io.WriteString(w, endpoint.Body); err != nil {
+				panic(fmt.Sprintf("test handler write failed: %v", err))
+			}
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -72,7 +77,8 @@ func CaptureOutput(t *testing.T, f func()) string {
 
 	f()
 
-	w.Close()
+	// Best effort close - pipe close errors are not critical in tests
+	_ = w.Close()
 	os.Stdout = stdout
 
 	out, _ := io.ReadAll(r)

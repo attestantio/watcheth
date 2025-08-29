@@ -18,6 +18,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/watcheth/watcheth/internal/logger"
 )
 
 const (
@@ -71,7 +73,12 @@ func (lr *LogReader) ReadLogs(clientName string) ([]string, error) {
 		lr.logCache[clientName] = []string{"[Unable to read log file: " + err.Error() + "]"}
 		return lr.logCache[clientName], nil
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log file close error is not critical for reading
+			logger.Debug("Failed to close log file %s: %v", logPath, err)
+		}
+	}()
 
 	// Read the last N lines efficiently
 	lines, err := tailFile(file, maxLogLines)

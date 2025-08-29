@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_model/go"
+	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/watcheth/watcheth/internal/common"
 	"github.com/watcheth/watcheth/internal/logger"
@@ -80,7 +80,11 @@ func (c *VouchClient) fetchMetrics(ctx context.Context) (map[string]*io_promethe
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Debug("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d from metrics endpoint", resp.StatusCode)
@@ -118,9 +122,10 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 		for _, m := range mf.Metric {
 			result := getLabelValue(m.Label, "result")
 			if m.Counter != nil && m.Counter.Value != nil {
-				if result == "succeeded" {
+				switch result {
+				case "succeeded":
 					info.AttestationSucceeded = uint64(*m.Counter.Value)
-				} else if result == "failed" {
+				case "failed":
 					info.AttestationFailed = uint64(*m.Counter.Value)
 				}
 			}
@@ -144,9 +149,10 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 		for _, m := range mf.Metric {
 			result := getLabelValue(m.Label, "result")
 			if m.Counter != nil && m.Counter.Value != nil {
-				if result == "succeeded" {
+				switch result {
+				case "succeeded":
 					info.BlockProposalSucceeded = uint64(*m.Counter.Value)
-				} else if result == "failed" {
+				case "failed":
 					info.BlockProposalFailed = uint64(*m.Counter.Value)
 				}
 			}
@@ -194,9 +200,10 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 		for _, m := range mf.Metric {
 			result := getLabelValue(m.Label, "result")
 			if m.Counter != nil && m.Counter.Value != nil {
-				if result == "succeeded" {
+				switch result {
+				case "succeeded":
 					info.RelayRegistrationSucceeded = uint64(*m.Counter.Value)
-				} else if result == "failed" {
+				case "failed":
 					info.RelayRegistrationFailed = uint64(*m.Counter.Value)
 				}
 			}
@@ -208,9 +215,10 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 		for _, m := range mf.Metric {
 			result := getLabelValue(m.Label, "result")
 			if m.Counter != nil && m.Counter.Value != nil {
-				if result == "succeeded" {
+				switch result {
+				case "succeeded":
 					info.RelayBuilderBidSucceeded = uint64(*m.Counter.Value)
-				} else if result == "failed" {
+				case "failed":
 					info.RelayBuilderBidFailed = uint64(*m.Counter.Value)
 				}
 			}
@@ -222,9 +230,10 @@ func (c *VouchClient) parseMetrics(metricFamilies map[string]*io_prometheus_clie
 		for _, m := range mf.Metric {
 			result := getLabelValue(m.Label, "result")
 			if m.Counter != nil && m.Counter.Value != nil {
-				if result == "succeeded" {
+				switch result {
+				case "succeeded":
 					info.RelayExecutionConfigSucceeded = uint64(*m.Counter.Value)
-				} else if result == "failed" {
+				case "failed":
 					info.RelayExecutionConfigFailed = uint64(*m.Counter.Value)
 				}
 			}

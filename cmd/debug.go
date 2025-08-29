@@ -69,11 +69,12 @@ func runDebug(cmd *cobra.Command, args []string) {
 		output = io.MultiWriter(os.Stdout, file)
 	}
 
-	if clientType == "execution" {
+	switch clientType {
+	case "execution":
 		debugExecutionClient(endpoint, output)
-	} else if clientType == "vouch" {
+	case "vouch":
 		debugVouchClient(endpoint, output)
-	} else {
+	default:
 		debugConsensusClient(endpoint, output)
 	}
 }

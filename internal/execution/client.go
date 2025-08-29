@@ -200,7 +200,11 @@ func (c *executionClient) callRPC(ctx context.Context, method string, params []i
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Best effort close - errors here are not critical
+		// as we've already read the response
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

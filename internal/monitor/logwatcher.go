@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/watcheth/watcheth/internal/logger"
 )
 
 const (
@@ -53,7 +54,10 @@ func (fw *fileWatcher) readNewLines() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		// Best effort close for read-only file
+		_ = file.Close()
+	}()
 
 	// Get current file size
 	stat, err := file.Stat()
@@ -152,6 +156,7 @@ type LogWatcher struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	pollTicker *time.Ticker
+	bufferSize int
 }
 
 func NewLogWatcher(bufferSize int, pollInterval time.Duration) (*LogWatcher, error) {
@@ -177,6 +182,7 @@ func NewLogWatcher(bufferSize int, pollInterval time.Duration) (*LogWatcher, err
 		ctx:        ctx,
 		cancel:     cancel,
 		pollTicker: time.NewTicker(pollInterval),
+		bufferSize: bufferSize,
 	}
 
 	go lw.watchLoop()
@@ -190,20 +196,22 @@ func (lw *LogWatcher) AddLogFile(clientName, logPath string) error {
 	// Remove old watcher if exists
 	if old, exists := lw.watchers[clientName]; exists {
 		old.close()
-		lw.watcher.Remove(old.path)
+		if err := lw.watcher.Remove(old.path); err != nil {
+			// Log but don't fail - the file might not exist anymore
+			logger.Debug("Failed to remove watcher for %s: %v", old.path, err)
+		}
 	}
 
 	// Create new file watcher
 	fw := &fileWatcher{
 		path:       logPath,
-		buffer:     make([]string, 0, defaultLogBufferSize),
-		bufferSize: defaultLogBufferSize,
+		buffer:     make([]string, 0, lw.bufferSize),
+		bufferSize: lw.bufferSize,
 	}
 
 	// Try to add to fsnotify watcher
-	if err := lw.watcher.Add(logPath); err != nil {
-		// File might not exist yet, but we'll still poll it
-	}
+	// File might not exist yet, but we'll still poll it
+	_ = lw.watcher.Add(logPath)
 
 	lw.watchers[clientName] = fw
 
@@ -219,7 +227,10 @@ func (lw *LogWatcher) initialRead(clientName string, fw *fileWatcher) {
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	defer func() {
+		// Best effort close for read-only file
+		_ = file.Close()
+	}()
 
 	// Get file size for tracking
 	stat, err := file.Stat()

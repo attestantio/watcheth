@@ -15,7 +15,6 @@ package monitor
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,7 +91,7 @@ func TestLogReader_ReadLogs_Success(t *testing.T) {
 		"2024-01-01 10:00:03 ERROR Failed to connect",
 		"2024-01-01 10:00:04 INFO Retrying connection",
 	}
-	err := ioutil.WriteFile(logFile, []byte(strings.Join(content, "\n")), 0644)
+	err := os.WriteFile(logFile, []byte(strings.Join(content, "\n")), 0644)
 	assert.NoError(t, err)
 
 	lr := NewLogReader()
@@ -108,7 +107,7 @@ func TestLogReader_ReadLogs_EmptyFile(t *testing.T) {
 	tempDir := t.TempDir()
 	logFile := filepath.Join(tempDir, "empty.log")
 
-	err := ioutil.WriteFile(logFile, []byte(""), 0644)
+	err := os.WriteFile(logFile, []byte(""), 0644)
 	assert.NoError(t, err)
 
 	lr := NewLogReader()
@@ -133,7 +132,7 @@ func TestLogReader_GetCachedLogs(t *testing.T) {
 	assert.Equal(t, []string{"[Logs not loaded yet]"}, cached)
 
 	// After reading (non-existent file)
-	lr.ReadLogs("client1")
+	_, _ = lr.ReadLogs("client1")
 	cached = lr.GetCachedLogs("client1")
 	assert.Contains(t, cached[0], "[Unable to read log file:")
 }
@@ -148,12 +147,12 @@ func TestTailFile_LargeFile(t *testing.T) {
 		lines = append(lines, fmt.Sprintf("2024-01-01 10:00:%02d INFO Log line %d", i, i))
 	}
 
-	err := ioutil.WriteFile(logFile, []byte(strings.Join(lines, "\n")), 0644)
+	err := os.WriteFile(logFile, []byte(strings.Join(lines, "\n")), 0644)
 	assert.NoError(t, err)
 
 	file, err := os.Open(logFile)
 	assert.NoError(t, err)
-	defer file.Close()
+	t.Cleanup(func() { _ = file.Close() })
 
 	// Read last 15 lines
 	result, err := tailFile(file, maxLogLines)
@@ -178,12 +177,12 @@ func TestTailFile_SmallFile(t *testing.T) {
 		"Line 3",
 	}
 
-	err := ioutil.WriteFile(logFile, []byte(strings.Join(content, "\n")), 0644)
+	err := os.WriteFile(logFile, []byte(strings.Join(content, "\n")), 0644)
 	assert.NoError(t, err)
 
 	file, err := os.Open(logFile)
 	assert.NoError(t, err)
-	defer file.Close()
+	t.Cleanup(func() { _ = file.Close() })
 
 	// Request more lines than available
 	result, err := tailFile(file, 10)
@@ -197,12 +196,12 @@ func TestTailFile_WithEmptyLines(t *testing.T) {
 	logFile := filepath.Join(tempDir, "empty_lines.log")
 
 	content := "Line 1\n\n\nLine 2\n\nLine 3\n\n"
-	err := ioutil.WriteFile(logFile, []byte(content), 0644)
+	err := os.WriteFile(logFile, []byte(content), 0644)
 	assert.NoError(t, err)
 
 	file, err := os.Open(logFile)
 	assert.NoError(t, err)
-	defer file.Close()
+	t.Cleanup(func() { _ = file.Close() })
 
 	result, err := tailFile(file, 5)
 	assert.NoError(t, err)
@@ -240,7 +239,7 @@ func TestLogReader_ConcurrentAccess(t *testing.T) {
 	// Create temp file
 	tempDir := t.TempDir()
 	logFile := filepath.Join(tempDir, "concurrent.log")
-	err := ioutil.WriteFile(logFile, []byte("Test log line"), 0644)
+	err := os.WriteFile(logFile, []byte("Test log line"), 0644)
 	assert.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -261,7 +260,7 @@ func TestLogReader_ConcurrentAccess(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			clientName := fmt.Sprintf("client%d", idx)
-			lr.ReadLogs(clientName)
+			_, _ = lr.ReadLogs(clientName)
 		}(i)
 	}
 
@@ -309,7 +308,7 @@ func TestLogReader_MultipleClients(t *testing.T) {
 	// Create log files
 	for client, lines := range clients {
 		logFile := filepath.Join(tempDir, client+".log")
-		err := ioutil.WriteFile(logFile, []byte(strings.Join(lines, "\n")), 0644)
+		err := os.WriteFile(logFile, []byte(strings.Join(lines, "\n")), 0644)
 		assert.NoError(t, err)
 		lr.SetLogPath(client, logFile)
 	}
@@ -338,15 +337,19 @@ func TestTailFile_VeryLargeFile(t *testing.T) {
 
 	// Write 10MB of data
 	for i := 0; i < 10000; i++ {
-		fmt.Fprintf(file, "This is a long log line number %d with some padding to make it longer %s\n",
-			i, strings.Repeat("x", 100))
+		if _, err := fmt.Fprintf(file, "This is a long log line number %d with some padding to make it longer %s\n",
+			i, strings.Repeat("x", 100)); err != nil {
+			t.Fatalf("Failed to write test data: %v", err)
+		}
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		t.Fatalf("Failed to close test file: %v", err)
+	}
 
 	// Read the file
 	file, err = os.Open(logFile)
 	assert.NoError(t, err)
-	defer file.Close()
+	t.Cleanup(func() { _ = file.Close() })
 
 	// Should efficiently read last 15 lines
 	result, err := tailFile(file, maxLogLines)

@@ -804,22 +804,19 @@ func (d *Display) updateLogView() {
 func (d *Display) countdownLoop() {
 	defer d.countdownTicker.Stop()
 
-	for {
-		select {
-		case <-d.countdownTicker.C:
-			d.app.QueueUpdateDraw(func() {
-				// Decrement next slot time
-				if d.nextSlotTime > 0 {
-					d.nextSlotTime -= time.Second
-					if d.nextSlotTime < 0 {
-						d.nextSlotTime = 0
-					}
+	for range d.countdownTicker.C {
+		d.app.QueueUpdateDraw(func() {
+			// Decrement next slot time
+			if d.nextSlotTime > 0 {
+				d.nextSlotTime -= time.Second
+				if d.nextSlotTime < 0 {
+					d.nextSlotTime = 0
 				}
+			}
 
-				d.updateConsensusHeader()
-				d.updateHelpText()
-			})
-		}
+			d.updateConsensusHeader()
+			d.updateHelpText()
+		})
 	}
 }
 
@@ -830,14 +827,11 @@ func (d *Display) animationLoop() {
 		}
 	}()
 
-	for {
-		select {
-		case <-d.animationTicker.C:
-			d.app.QueueUpdateDraw(func() {
-				d.animationFrame = (d.animationFrame + 1) % len(titleAnimationFrames)
-				d.title.SetText(titleAnimationFrames[d.animationFrame])
-			})
-		}
+	for range d.animationTicker.C {
+		d.app.QueueUpdateDraw(func() {
+			d.animationFrame = (d.animationFrame + 1) % len(titleAnimationFrames)
+			d.title.SetText(titleAnimationFrames[d.animationFrame])
+		})
 	}
 }
 

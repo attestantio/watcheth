@@ -24,12 +24,10 @@ func (d *Display) updateValidatorTable(infos []*validator.ValidatorNodeInfo) {
 	d.updateValidatorSummary(infos)
 }
 
-// createProgressBar creates an ASCII progress bar
-func createProgressBar(percentage float64, width int) string {
-	if width <= 0 {
-		width = 20
-	}
+const progressBarWidth = 20
 
+// createProgressBar creates an ASCII progress bar with a fixed width
+func createProgressBar(percentage float64) string {
 	// Ensure percentage is between 0 and 100
 	if percentage < 0 {
 		percentage = 0
@@ -38,8 +36,8 @@ func createProgressBar(percentage float64, width int) string {
 		percentage = 100
 	}
 
-	filled := int(percentage * float64(width) / 100)
-	empty := width - filled
+	filled := int(percentage * float64(progressBarWidth) / 100)
+	empty := progressBarWidth - filled
 
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
 	return bar
@@ -220,7 +218,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 	// Attestations
 	attestPercent := metrics["attestPercent"].(float64)
-	attestBar := createProgressBar(attestPercent, 20)
+	attestBar := createProgressBar(attestPercent)
 	attestColor := getPercentageColor(attestPercent)
 	summary.WriteString(fmt.Sprintf("  Attestations: [%s]%s[white] %5.1f%% (%d/%d)\n",
 		attestColor, attestBar, attestPercent,
@@ -228,7 +226,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 	// Proposals
 	propPercent := metrics["propPercent"].(float64)
-	propBar := createProgressBar(propPercent, 20)
+	propBar := createProgressBar(propPercent)
 	propColor := getPercentageColor(propPercent)
 	propTotal := metrics["propTotal"].(uint64)
 	var propDisplay string
@@ -242,7 +240,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 	// Relay Registrations
 	relayRegPercent := metrics["relayRegPercent"].(float64)
-	relayRegBar := createProgressBar(relayRegPercent, 20)
+	relayRegBar := createProgressBar(relayRegPercent)
 	relayRegColor := getPercentageColor(relayRegPercent)
 	summary.WriteString(fmt.Sprintf("  Relay Regs:   [%s]%s[white] %5.1f%% (%d/%d)\n",
 		relayRegColor, relayRegBar, relayRegPercent,
@@ -250,7 +248,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 	// Builder Bids
 	builderPercent := metrics["builderPercent"].(float64)
-	builderBar := createProgressBar(builderPercent, 20)
+	builderBar := createProgressBar(builderPercent)
 	builderColor := getPercentageColor(builderPercent)
 	summary.WriteString(fmt.Sprintf("  Builder Bids: [%s]%s[white] %5.1f%% (%d/%d)\n",
 		builderColor, builderBar, builderPercent,
@@ -258,7 +256,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 	// Exec Config
 	execPercent := metrics["execConfigPercent"].(float64)
-	execBar := createProgressBar(execPercent, 20)
+	execBar := createProgressBar(execPercent)
 	execColor := getPercentageColor(execPercent)
 	summary.WriteString(fmt.Sprintf("  Exec Config:  [%s]%s[white] %5.1f%% (%d/%d)\n",
 		execColor, execBar, execPercent,
@@ -270,7 +268,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 	if latencyPercent < 0 {
 		latencyPercent = 0
 	}
-	latencyBar := createProgressBar(latencyPercent, 20)
+	latencyBar := createProgressBar(latencyPercent)
 	latencyColor := getLatencyColor(avgLatency)
 	latencyStatus := getLatencyStatus(avgLatency)
 	summary.WriteString(fmt.Sprintf("  Avg Latency:  [%s]%s[white] %3.0fms (%s)\n",
@@ -313,7 +311,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 		// Pending validators line
 		if pendingInit > 0 || pendingQueued > 0 {
-			summary.WriteString(fmt.Sprintf("  Pending:      "))
+			summary.WriteString("  Pending:      ")
 			if pendingInit > 0 {
 				summary.WriteString(fmt.Sprintf("[yellow]%d initialized[white]", pendingInit))
 				if pendingQueued > 0 {
@@ -328,7 +326,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 		// Exited validators line
 		if exitedUnslashed > 0 || exitedSlashed > 0 {
-			summary.WriteString(fmt.Sprintf("  Exited:       "))
+			summary.WriteString("  Exited:       ")
 			if exitedUnslashed > 0 {
 				summary.WriteString(fmt.Sprintf("[dim]%d successfully[white]", exitedUnslashed))
 				if exitedSlashed > 0 {
@@ -343,7 +341,7 @@ func (d *Display) updateValidatorSummary(infos []*validator.ValidatorNodeInfo) {
 
 		// Withdrawal states line
 		if withdrawPossible > 0 || withdrawDone > 0 {
-			summary.WriteString(fmt.Sprintf("  Withdrawal:   "))
+			summary.WriteString("  Withdrawal:   ")
 			if withdrawPossible > 0 {
 				summary.WriteString(fmt.Sprintf("[blue]%d possible[white]", withdrawPossible))
 				if withdrawDone > 0 {

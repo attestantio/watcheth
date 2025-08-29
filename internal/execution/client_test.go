@@ -171,10 +171,14 @@ func TestExecutionClient_GetNodeInfo(t *testing.T) {
 			if resp, ok := responses[method]; ok {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprint(w, resp)
+				if _, err := fmt.Fprint(w, resp); err != nil {
+					panic(fmt.Sprintf("test handler write failed: %v", err))
+				}
 			} else {
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprintf(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`)
+				if _, err := fmt.Fprintf(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`); err != nil {
+					panic(fmt.Sprintf("test handler write failed: %v", err))
+				}
 			}
 		}
 	}
@@ -423,10 +427,14 @@ func createMockHandler(responses map[string]string) http.HandlerFunc {
 		if resp, ok := responses[method]; ok {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, resp)
+			if _, err := fmt.Fprint(w, resp); err != nil {
+				panic(fmt.Sprintf("test handler write failed: %v", err))
+			}
 		} else {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`)
+			if _, err := fmt.Fprintf(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}`); err != nil {
+				panic(fmt.Sprintf("test handler write failed: %v", err))
+			}
 		}
 	}
 }
