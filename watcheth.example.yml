@@ -1,0 +1,40 @@
+clients:
+  # Consensus clients
+  - name: "prysm"
+    type: "consensus"
+    endpoint: "http://localhost:8000"
+  - name: "lighthouse"
+    type: "consensus"
+    endpoint: "http://localhost:8001"
+  - name: "teku"
+    type: "consensus"
+    endpoint: "http://localhost:8002"
+  - name: "nimbus"
+    type: "consensus"
+    endpoint: "http://localhost:8003"
+    
+  # Execution clients
+  - name: "geth"
+    type: "execution"
+    log_path: "/var/log/geth/geth.log"
+    endpoint: "http://localhost:8004"
+  - name: "nethermind"
+    type: "execution"
+    log_path: "/var/log/nethermind/nethermind.log"
+    endpoint: "http://localhost:8005"
+  - name: "besu"
+    type: "execution"
+    log_path: "/var/log/besu/besu.log"
+    endpoint: "http://localhost:8006"
+  - name: "reth"
+    type: "execution"
+    log_path: "/var/log/reth/reth.log"
+    endpoint: "http://localhost:8007"
+    
+  # Validator clients
+  - name: "vouch"
+    type: "vouch"
+    log_path: "/var/log/vouch/vouch.log"
+    endpoint: "http://localhost:8008/metrics"
+
+refresh_interval: 2s

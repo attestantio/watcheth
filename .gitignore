@@ -50,7 +50,8 @@ Thumbs.db
 build/
 dist/
 
-# Configuration overrides (but keep the default watcheth.yml)
+# Configuration files (keep example, ignore actual config)
+watcheth.yml
 watcheth.local.yml
 watcheth.*.yml
-!watcheth.yml
+!watcheth.example.yml
