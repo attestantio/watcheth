@@ -60,7 +60,11 @@ func runDebug(cmd *cobra.Command, args []string) {
 			fmt.Printf("Error creating output file: %v\n", err)
 			os.Exit(1)
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				fmt.Printf("Error closing file: %v\n", err)
+			}
+		}()
 		// Write to both stdout and file
 		output = io.MultiWriter(os.Stdout, file)
 	}
@@ -75,7 +79,7 @@ func runDebug(cmd *cobra.Command, args []string) {
 }
 
 func debugConsensusClient(endpoint string, w io.Writer) {
-	fmt.Fprintf(w, "Testing consensus client at: %s\n\n", endpoint)
+	_, _ = fmt.Fprintf(w, "Testing consensus client at: %s\n\n", endpoint)
 
 	endpoints := []string{
 		"/eth/v1/beacon/genesis",
@@ -91,51 +95,51 @@ func debugConsensusClient(endpoint string, w io.Writer) {
 	}
 
 	for _, path := range endpoints {
-		fmt.Fprintf(w, "Testing %s...", path)
+		_, _ = fmt.Fprintf(w, "Testing %s...", path)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, "GET", endpoint+path, nil)
 		if err != nil {
-			fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
+			_, _ = fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
 			continue
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Fprintf(w, " ❌ Error: %v\n", err)
+			_, _ = fmt.Fprintf(w, " ❌ Error: %v\n", err)
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
+			_, _ = fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
 			continue
 		}
 
 		if resp.StatusCode == http.StatusOK {
-			fmt.Fprintf(w, " ✅ OK (200)\n")
+			_, _ = fmt.Fprintf(w, " ✅ OK (200)\n")
 
 			// Try to parse as JSON to show formatted response
 			var rawJSON any
 			if err := json.Unmarshal(body, &rawJSON); err != nil {
-				fmt.Fprintf(w, "   Failed to parse JSON: %v\n", err)
-				fmt.Fprintf(w, "   Raw response: %s\n", string(body))
+				_, _ = fmt.Fprintf(w, "   Failed to parse JSON: %v\n", err)
+				_, _ = fmt.Fprintf(w, "   Raw response: %s\n", string(body))
 			} else {
 				formatted, _ := json.MarshalIndent(rawJSON, "   ", "  ")
-				fmt.Fprintf(w, "   Response:\n%s\n", string(formatted))
+				_, _ = fmt.Fprintf(w, "   Response:\n%s\n", string(formatted))
 			}
 		} else {
-			fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
-			fmt.Fprintf(w, "   Response: %s\n", string(body))
+			_, _ = fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
+			_, _ = fmt.Fprintf(w, "   Response: %s\n", string(body))
 		}
 	}
 }
 
 func debugExecutionClient(endpoint string, w io.Writer) {
-	fmt.Fprintf(w, "Testing execution client at: %s\n\n", endpoint)
+	_, _ = fmt.Fprintf(w, "Testing execution client at: %s\n\n", endpoint)
 
 	// Test JSON-RPC methods
 	methods := []string{
@@ -154,7 +158,7 @@ func debugExecutionClient(endpoint string, w io.Writer) {
 	}
 
 	for _, method := range methods {
-		fmt.Fprintf(w, "Testing %s...", method)
+		_, _ = fmt.Fprintf(w, "Testing %s...", method)
 
 		// Create JSON-RPC request
 		jsonReq := map[string]interface{}{
@@ -166,7 +170,7 @@ func debugExecutionClient(endpoint string, w io.Writer) {
 
 		reqBody, err := json.Marshal(jsonReq)
 		if err != nil {
-			fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
+			_, _ = fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
 			continue
 		}
 
@@ -175,46 +179,46 @@ func debugExecutionClient(endpoint string, w io.Writer) {
 
 		req, err := http.NewRequestWithContext(ctx, "POST", endpoint, strings.NewReader(string(reqBody)))
 		if err != nil {
-			fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
+			_, _ = fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Fprintf(w, " ❌ Error: %v\n", err)
+			_, _ = fmt.Fprintf(w, " ❌ Error: %v\n", err)
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
+			_, _ = fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
 			continue
 		}
 
 		if resp.StatusCode == http.StatusOK {
-			fmt.Fprintf(w, " ✅ OK (200)\n")
+			_, _ = fmt.Fprintf(w, " ✅ OK (200)\n")
 
 			var result map[string]interface{}
 			if err := json.Unmarshal(body, &result); err != nil {
-				fmt.Fprintf(w, "   Failed to parse JSON: %v\n", err)
+				_, _ = fmt.Fprintf(w, "   Failed to parse JSON: %v\n", err)
 			} else {
 				if res, ok := result["result"]; ok {
-					fmt.Fprintf(w, "   Result: %v\n", res)
+					_, _ = fmt.Fprintf(w, "   Result: %v\n", res)
 				} else if errMsg, ok := result["error"]; ok {
-					fmt.Fprintf(w, "   Error: %v\n", errMsg)
+					_, _ = fmt.Fprintf(w, "   Error: %v\n", errMsg)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
-			fmt.Fprintf(w, "   Response: %s\n", string(body))
+			_, _ = fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
+			_, _ = fmt.Fprintf(w, "   Response: %s\n", string(body))
 		}
 	}
 }
 
 func debugVouchClient(endpoint string, w io.Writer) {
-	fmt.Fprintf(w, "Testing Vouch validator client at: %s\n\n", endpoint)
+	_, _ = fmt.Fprintf(w, "Testing Vouch validator client at: %s\n\n", endpoint)
 
 	// Determine the metrics URL - don't append /metrics if it's already in the endpoint
 	metricsURL := endpoint
@@ -223,7 +227,7 @@ func debugVouchClient(endpoint string, w io.Writer) {
 	}
 
 	// Test Prometheus metrics endpoint
-	fmt.Fprintf(w, "Testing %s...", metricsURL)
+	_, _ = fmt.Fprintf(w, "Testing %s...", metricsURL)
 
 	client := &http.Client{
 		Timeout: 5 * time.Second,
@@ -234,31 +238,31 @@ func debugVouchClient(endpoint string, w io.Writer) {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", metricsURL, nil)
 	if err != nil {
-		fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
+		_, _ = fmt.Fprintf(w, " ❌ Error creating request: %v\n", err)
 		return
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Fprintf(w, " ❌ Error: %v\n", err)
+		_, _ = fmt.Fprintf(w, " ❌ Error: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
+		_, _ = fmt.Fprintf(w, " ❌ Error reading body: %v\n", err)
 		return
 	}
 
 	if resp.StatusCode == http.StatusOK {
-		fmt.Fprintf(w, " ✅ OK (200)\n\n")
+		_, _ = fmt.Fprintf(w, " ✅ OK (200)\n\n")
 
 		// Just print the full raw response
-		fmt.Fprintf(w, "=== Full Response ===\n")
-		fmt.Fprintf(w, "%s\n", string(body))
+		_, _ = fmt.Fprintf(w, "=== Full Response ===\n")
+		_, _ = fmt.Fprintf(w, "%s\n", string(body))
 	} else {
-		fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
-		fmt.Fprintf(w, "   Response: %s\n", string(body))
+		_, _ = fmt.Fprintf(w, " ❌ Status: %d\n", resp.StatusCode)
+		_, _ = fmt.Fprintf(w, "   Response: %s\n", string(body))
 	}
 }
