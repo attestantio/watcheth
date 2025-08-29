@@ -1,106 +1,21 @@
-version: 2
+version: "2"
 
 run:
   timeout: 10m
-  tests: false
-  modules-download-mode: readonly
-  allow-parallel-runners: true
-
-output:
-  format: colored-line-number
 
 linters:
-  disable-all: true
   enable:
-    - bodyclose
-    - dogsled
-    - dupl
     - errcheck
-    - copyloopvar
-    - exhaustive
-    - gochecknoinits
-    - goconst
-    - gocritic
-    - gocyclo
-    - mnd
-    - goprintffuncname
-    - gosec
     - govet
     - ineffassign
-    - lll
-    - misspell
-    - nakedret
-    - noctx
-    - nolintlint
-    - revive
     - staticcheck
+    - unused
+    - misspell
+    - bodyclose
     - unconvert
     - unparam
-    - unused
-    - whitespace
 
-linters-settings:
-  dupl:
-    threshold: 100
-  exhaustive:
-    default-signifies-exhaustive: false
-  funlen:
-    lines: 100
-    statements: 50
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(github.com/watcheth/watcheth)
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-      - wrapperFunc
-  gocyclo:
-    min-complexity: 15
-  mnd:
-    checks:
-      - argument
-      - case
-      - condition
-      - operation
-      - return
-      - assign
-  govet:
-    enable-all: true
-  lll:
-    line-length: 140
-  misspell:
-    locale: US
-  nolintlint:
-    allow-unused: false
-    require-explanation: false
-    require-specific: false
-  revive:
-    confidence: 0
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - mnd
-        - funlen
-        - dupl
-        - goconst
-        - errcheck
-
-  new: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
