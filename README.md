@@ -1,5 +1,9 @@
 # watcheth
 
+[![golangci-lint](https://github.com/watcheth/watcheth/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/watcheth/watcheth/actions/workflows/golangci-lint.yml)
+[![test](https://github.com/watcheth/watcheth/actions/workflows/test.yml/badge.svg)](https://github.com/watcheth/watcheth/actions/workflows/test.yml)
+[![release](https://github.com/watcheth/watcheth/actions/workflows/release.yml/badge.svg)](https://github.com/watcheth/watcheth/actions/workflows/release.yml)
+
 Unified monitoring for Ethereum consensus, execution, and validator clients.
 
 ## Overview
@@ -197,6 +201,16 @@ Build artifacts are placed in the `build/` directory with platform-specific subd
 go test ./...
 ```
 
+### CI/CD
+
+watcheth uses GitHub Actions for continuous integration and deployment:
+
+- **Linting**: Code quality checks on every push and PR
+- **Testing**: Automated test execution with race detection
+- **Releases**: Automated multi-platform binary builds for tagged releases
+
+For detailed workflow documentation, see [docs/WORKFLOWS.md](docs/WORKFLOWS.md).
+
 ## License
 
 Apache License 2.0
@@ -204,3 +218,9 @@ Apache License 2.0
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+Before submitting:
+1. Run `go fmt ./...` to format code
+2. Run `golangci-lint run ./...` to check for linting issues
+3. Run `go test -race ./...` to ensure tests pass
+4. See [docs/WORKFLOWS.md](docs/WORKFLOWS.md) for the complete development workflow
