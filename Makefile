@@ -43,13 +43,11 @@ build-all:
 	@mkdir -p $(BUILD_DIR)/linux-arm64
 	@mkdir -p $(BUILD_DIR)/darwin-amd64
 	@mkdir -p $(BUILD_DIR)/darwin-arm64
-	@mkdir -p $(BUILD_DIR)/windows-amd64
 	
 	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/linux-amd64/$(BINARY_NAME) -v
 	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/linux-arm64/$(BINARY_NAME) -v
 	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/darwin-amd64/$(BINARY_NAME) -v
 	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/darwin-arm64/$(BINARY_NAME) -v
-	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/windows-amd64/$(BINARY_NAME).exe -v
 
 # Clean build artifacts
 .PHONY: clean
