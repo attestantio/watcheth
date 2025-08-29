@@ -106,9 +106,19 @@ func (m *Monitor) updateAll(ctx context.Context) {
 
 	var wg sync.WaitGroup
 
+	// Copy client slices while holding lock to avoid race conditions
+	m.mu.RLock()
+	consensusClients := make([]consensus.Client, len(m.consensusClients))
+	copy(consensusClients, m.consensusClients)
+	executionClients := make([]execution.Client, len(m.executionClients))
+	copy(executionClients, m.executionClients)
+	validatorClients := make([]validator.Client, len(m.validatorClients))
+	copy(validatorClients, m.validatorClients)
+	m.mu.RUnlock()
+
 	// Update consensus clients
-	consensusResults := make([]*consensus.ConsensusNodeInfo, len(m.consensusClients))
-	for i, client := range m.consensusClients {
+	consensusResults := make([]*consensus.ConsensusNodeInfo, len(consensusClients))
+	for i, client := range consensusClients {
 		wg.Add(1)
 		go func(idx int, c consensus.Client) {
 			defer wg.Done()
@@ -132,8 +142,8 @@ func (m *Monitor) updateAll(ctx context.Context) {
 	}
 
 	// Update execution clients
-	executionResults := make([]*execution.ExecutionNodeInfo, len(m.executionClients))
-	for i, client := range m.executionClients {
+	executionResults := make([]*execution.ExecutionNodeInfo, len(executionClients))
+	for i, client := range executionClients {
 		wg.Add(1)
 		go func(idx int, c execution.Client) {
 			defer wg.Done()
@@ -156,8 +166,8 @@ func (m *Monitor) updateAll(ctx context.Context) {
 	}
 
 	// Update validator clients
-	validatorResults := make([]*validator.ValidatorNodeInfo, len(m.validatorClients))
-	for i, client := range m.validatorClients {
+	validatorResults := make([]*validator.ValidatorNodeInfo, len(validatorClients))
+	for i, client := range validatorClients {
 		wg.Add(1)
 		go func(idx int, c validator.Client) {
 			defer wg.Done()
