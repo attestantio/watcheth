@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-08-29
 
 ### Added
+
 - Initial release of watcheth CLI tool
 - Multi-client monitoring support for Ethereum consensus clients:
   - Prysm
@@ -31,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YAML configuration support
 - Debug mode for troubleshooting connectivity issues
 - Version command with build information
-- Cross-platform support (Linux, macOS, Windows)
+- Cross-platform support (Linux, macOS)
 - Prometheus metrics parsing for node monitoring
 
 [0.1.0]: https://github.com/watcheth/watcheth/releases/tag/v0.1.0

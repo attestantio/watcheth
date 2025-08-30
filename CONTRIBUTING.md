@@ -1,105 +1,113 @@
-# Contributing to watcheth
+# Contributing
 
 ## Maintainers
 
-The maintainers for watcheth are:
+- [Hoanh An](https://github.com/hoanhan101)
+- [Chris Berry](https://github.com/Bez625)
 
-  - [Hoanh An](https://github.com/hoanhan101)
-  - [Chris Berry](https://github.com/Bez625)
+## Development Setup
 
-## Issues
+**Prerequisites:**
 
-If you have found a problem with watcheth or would like to suggest a feature, please check the [open issues](https://github.com/attestantio/watcheth/issues) to see if it has already been raised.  If not, feel free to open a new issue and provide as much detail as possible about the issue or feature.
+- Go 1.21+
+- golangci-lint
+- Make (optional)
 
-## Development
+**Project Structure:**
 
-### Prerequisites
-
-- Go 1.23 or later
-- Make (optional, for using Makefile targets)
-- golangci-lint (for running linters locally)
-
-### Building
-
-```bash
-# Build for current platform
-make build
-
-# Build for Linux AMD64 (common for servers)
-make build-linux
-
-# Build for all major platforms
-make build-all
-
-# Manual build without Make
-go build -o watcheth
-
-# Build with version info
-go build -ldflags "-X github.com/watcheth/watcheth/internal/version.Version=$(git describe --tags --always --dirty)"
+```
+watcheth/
+├── cmd/           # CLI commands
+├── internal/      # Core logic
+│   ├── consensus/ # Beacon clients
+│   ├── execution/ # Execution clients
+│   ├── validator/ # Vouch support
+│   └── monitor/   # UI display
+└── docs/          # Documentation
 ```
 
-### Running
+## Building
 
 ```bash
-# Run from build directory
-./build/watcheth
+# Quick build
+go build
 
-# Run with custom config
-./build/watcheth --config /path/to/watcheth.yml
+# Using Make
+make build       # Current platform
+make build-all   # All platforms
+make install     # Install to GOPATH/bin
 
-# Run in debug mode
-./build/watcheth --debug
-
-# List nodes once (non-interactive)
-./build/watcheth list
-
-# Monitor continuously (interactive)
-./build/watcheth monitor
+# Cross-compile
+GOOS=linux GOARCH=amd64 go build
+GOOS=darwin GOARCH=arm64 go build
 ```
 
-## Tests and Linting
-
-### Tests
-
-Tests can be run locally with:
+## Testing
 
 ```bash
-go test ./...
-```
-
-or using Make:
-
-```bash
+# Run tests
+go test -race ./...
 make test
+
+# With coverage
+go test -race -cover ./...
+
+# Specific test
+go test -v -run TestName ./...
 ```
 
-### Linting
-
-Linters can be run locally with:
+## Code Quality
 
 ```bash
-golangci-lint run
-```
-
-### Code Quality
-
-Additional code quality checks:
-
-```bash
-# Format code
+# Format
 go fmt ./...
 
-# Vet code for common issues
-go vet ./...
+# Lint
+golangci-lint run ./...
+golangci-lint run --fix ./...
 
-# Update dependencies
+# Dependencies
 go mod tidy
 ```
 
-## Pull Requests
+## Pull Request Process
 
-Please ensure that:
-1. All tests pass
-2. The linter reports no issues
-3. Your code follows the existing code style
-4. Commit messages are clear and descriptive
+1. **Before submitting:**
+
+   ```bash
+   go fmt ./...
+   golangci-lint run ./...
+   go test -race ./...
+   ```
+
+2. **Commit format:**
+
+   ```
+   type: description
+
+   feat: add new feature
+   fix: resolve bug
+   docs: update documentation
+   test: add tests
+   refactor: improve code
+   ```
+
+3. **PR must have:**
+   - Clear title and description
+   - Passing CI checks
+   - Updated tests/docs if needed
+
+## Release Process
+
+See [docs/workflows.md](docs/workflows.md) for CI/CD details.
+
+```bash
+# Create release
+git tag v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+## Getting Help
+
+- [Issues](https://github.com/attestantio/watcheth/issues)
+- [Documentation](docs/)
