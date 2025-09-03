@@ -42,6 +42,12 @@ refresh_interval: 2s
 - [Debugging](docs/debugging.md)
 - [Contributing](CONTRIBUTING.md)
 
+## Maintainers
+
+Hoanh An: [@hoanhan101](https://github.com/hoanhan101)
+
+Chris Berry: [@bez625](https://github.com/Bez625)
+
 ## License
 
 Apache License 2.0
