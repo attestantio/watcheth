@@ -1,9 +1,5 @@
 # watcheth
 
-[![golangci-lint](https://github.com/watcheth/watcheth/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/watcheth/watcheth/actions/workflows/golangci-lint.yml)
-[![test](https://github.com/watcheth/watcheth/actions/workflows/test.yml/badge.svg)](https://github.com/watcheth/watcheth/actions/workflows/test.yml)
-[![release](https://github.com/watcheth/watcheth/actions/workflows/release.yml/badge.svg)](https://github.com/watcheth/watcheth/actions/workflows/release.yml)
-
 Unified monitoring for Ethereum consensus, execution, and validator clients.
 
 ## Features
